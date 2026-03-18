@@ -1,0 +1,12 @@
+# Route ALL requests through public/index.php (Front Controller pattern)
+# Place this file in your php/ root (next to composer.json)
+
+RewriteEngine On
+RewriteBase /
+
+# Serve existing files/dirs directly
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Everything else → front controller
+RewriteRule ^(.*)$ public/index.php [QSA,L]
