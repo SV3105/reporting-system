@@ -1,5 +1,5 @@
 // src/App.jsx — Vertical nav + full-width content, filters in toolbar
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import ReportTable    from './components/ReportTable';
 import ChartRenderer  from './components/ChartRenderer';
 import DateComparison from './components/DateComparison';
@@ -7,8 +7,8 @@ import { api }        from './services/api';
 import './App.css';
 
 const NAV_ITEMS = [
-  { id: 'reports', label: 'Reports',  icon: '⊞' },
-  { id: 'charts',  label: 'Charts',   icon: '⬡' },
+  { id: 'reports', label: 'Reports', icon: '⊞' },
+  { id: 'charts',  label: 'Charts',  icon: '⬡' },
 ];
 
 export default function App() {
@@ -19,6 +19,9 @@ export default function App() {
   const [facetField2,  setFacetField2]  = useState('');
   const [dateFilters,  setDateFilters]  = useState(null);
   const [navCollapsed, setNavCollapsed] = useState(false);
+
+  // resetKey forces ReportTable to fully remount (clears all internal filters/sort/columns)
+  const [resetKey, setResetKey] = useState(0);
 
   useEffect(() => {
     api.healthCheck().then(() => setSolrStatus('ok')).catch(() => setSolrStatus('error'));
@@ -31,6 +34,14 @@ export default function App() {
     }).catch(() => {});
   }, []);
 
+  // ── Global Reset ──────────────────────────────────────────
+  const handleResetAll = useCallback(() => {
+    setDateFilters(null);          // clear date filter
+    setResetKey(k => k + 1);      // remount ReportTable → clears column filters, sort, column visibility
+  }, []);
+
+  const hasAnyFilter = !!dateFilters;
+
   const activeDateParams = dateFilters
     ? { date_field: dateFilters.date_field, start_date: dateFilters.start_date, end_date: dateFilters.end_date }
     : {};
@@ -38,7 +49,7 @@ export default function App() {
   return (
     <div className="app-shell">
 
-      {/* ── Vertical Nav ────────────────────────────────────────── */}
+      {/* ── Vertical Nav ────────────────────────────────────── */}
       <nav className={`vnav ${navCollapsed ? 'vnav--collapsed' : ''}`}>
 
         <div className="vnav-brand">
@@ -77,7 +88,7 @@ export default function App() {
         </div>
       </nav>
 
-      {/* ── Body ────────────────────────────────────────────────── */}
+      {/* ── Body ─────────────────────────────────────────────── */}
       <div className="app-body">
 
         {/* Top bar */}
@@ -91,14 +102,29 @@ export default function App() {
             )}
           </div>
 
-          {/* Date filter lives in topbar for reports tab */}
+          {/* Date filter — compact dropdown */}
           {activeTab === 'reports' && (
             <div className="topbar-date">
-              <DateComparison allFields={allFields} onDateChange={setDateFilters} compact />
+              <DateComparison
+                key={resetKey}
+                allFields={allFields}
+                onDateChange={setDateFilters}
+                compact
+              />
             </div>
           )}
 
           <div className="topbar-right">
+            {/* ── Reset ALL button ── */}
+            {activeTab === 'reports' && (
+              <button
+                className={`btn btn-reset-all ${hasAnyFilter ? 'btn-reset-all--active' : ''}`}
+                onClick={handleResetAll}
+                title="Clear all filters, date range, sorting, and column selection"
+              >
+                ↺ Reset All
+              </button>
+            )}
             <span className="topbar-meta">
               {new Date().toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' })}
             </span>
@@ -107,9 +133,9 @@ export default function App() {
 
         <main className="app-main">
 
-          {/* Reports */}
+          {/* Reports — key prop forces full remount on reset */}
           {activeTab === 'reports' && (
-            <ReportTable extraParams={activeDateParams} />
+            <ReportTable key={resetKey} extraParams={activeDateParams} />
           )}
 
           {/* Charts */}

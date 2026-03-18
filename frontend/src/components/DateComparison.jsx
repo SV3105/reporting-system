@@ -77,8 +77,15 @@ function DatePanel({ allFields, onDateChange, onClose }) {
     setApplied(false);
     try {
       if (compare) {
-        const params = new URLSearchParams({ date_field: dateField, start_date: startDate, end_date: endDate, compare: 'true' });
-        const res  = await fetch(`${BASE_URL}/api/reports/daterange?${params}`, { headers: { Accept: 'application/json' } });
+        const params = new URLSearchParams({
+          date_field:  dateField,
+          start_date:  startDate,
+          end_date:    endDate,
+          compare:     'true',
+        });
+        const res  = await fetch(`${BASE_URL}/api/reports/daterange?${params}`, {
+          headers: { Accept: 'application/json' },
+        });
         const json = await res.json();
         if (!json.success) throw new Error(json.error || 'API error');
         setResult(json);
@@ -87,7 +94,8 @@ function DatePanel({ allFields, onDateChange, onClose }) {
       }
       setApplied(true);
       onDateChange?.({ date_field: dateField, start_date: startDate, end_date: endDate, compare });
-      onClose?.();
+      // Only auto-close when NOT comparing — keep panel open so user sees the stat cards
+      if (!compare) onClose?.();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -192,6 +200,9 @@ function DatePanel({ allFields, onDateChange, onClose }) {
               </span>
             </div>
           </div>
+          <button className="btn btn-outline btn-sm" style={{ marginTop: 6 }} onClick={onClose}>
+            Close Panel
+          </button>
         </div>
       )}
     </div>

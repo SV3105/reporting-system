@@ -357,6 +357,39 @@ body {
 }
 .btn-ghost:hover:not(:disabled) { color: var(--primary); background: var(--primary-light); }
 
+/* Reset All — neutral normally, red when filters are active */
+.btn-reset-all {
+  display:       inline-flex;
+  align-items:   center;
+  gap:           5px;
+  padding:       6px 12px;
+  border-radius: var(--radius);
+  font-family:   var(--font-body);
+  font-size:     12px;
+  font-weight:   600;
+  cursor:        pointer;
+  border:        1px solid var(--border-medium);
+  background:    var(--bg-surface);
+  color:         var(--text-muted);
+  transition:    all .15s;
+  white-space:   nowrap;
+}
+.btn-reset-all:hover {
+  color:        var(--danger);
+  border-color: var(--danger-border);
+  background:   var(--danger-bg);
+}
+.btn-reset-all--active {
+  color:        var(--danger);
+  border-color: var(--danger-border);
+  background:   var(--danger-bg);
+  animation:    pulse-reset 2s ease-in-out infinite;
+}
+@keyframes pulse-reset {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+  50%       { box-shadow: 0 0 0 4px rgba(220,38,38,.15); }
+}
+
 .btn-sm { padding: 5px 10px; font-size: 12px; }
 
 .badge {
