@@ -43,8 +43,12 @@ export default function App() {
   }, []);
 
   const handleDrilldown = useCallback((field, value) => {
-    // Preserve active date filters, but inject the clicked chart sector as a new HorizontalFilter
-    setGlobalExternalFilters({ [`filter_${field}`]: `*${value}*` }); 
+    // Determine if it's a numeric field (_i for int, _f for float)
+    const isNum = field.endsWith('_i') || field.endsWith('_f');
+    // For numbers, we need an exact match; for strings/text, we use wildcards
+    const filterValue = isNum ? value : `*${value}*`;
+    
+    setGlobalExternalFilters({ [`filter_${field}`]: filterValue }); 
     setResetKey(k => k + 1);
     setActiveTab('reports');
   }, []);

@@ -443,7 +443,8 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
           // Safety: convert empty array back to object if PHP serialized it incorrectly
           const w = (cfg.widths && !Array.isArray(cfg.widths)) ? cfg.widths : {};
           setColumnWidths(w);
-          if (cfg.visible) setVisibleColumnsState(cfg.visible);
+          // Set visibility even if it's null (null = all columns)
+          setVisibleColumnsState(cfg.visible);
         }
       } catch (e) { console.error('Failed to load user config:', e); }
     }
@@ -489,10 +490,12 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
     setFilters({});
     setColumnWidths({});
     saveWidths({});
-    setVisibleColumns(null);
+    // Reset to all columns explicitly
+    const targetCols = allColumns.length > 0 ? allColumns : null;
+    setVisibleColumns(targetCols);
     setPage(1);
     // Explicitly notify backend about the reset
-    api.saveUserConfig('sales_report', { widths: {}, visible: null }).catch(() => {});
+    api.saveUserConfig('sales_report', { widths: {}, visible: targetCols }).catch(() => {});
   };
 
   return (
