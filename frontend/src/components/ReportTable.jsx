@@ -175,7 +175,7 @@ function AutocompleteInput({ value, onChange, onApply, options }) {
 }
 
 // ── Horizontal Filter Bar (renders above the table always) ─────
-function HorizontalFilters({ columns, filters, onChange }) {
+function HorizontalFilters({ columns, filters, onChange, onReset }) {
   const [facetsCache, setFacetsCache] = useState({});
   const [rows, setRows] = useState(() => {
     const initial = [];
@@ -243,6 +243,7 @@ function HorizontalFilters({ columns, filters, onChange }) {
   const reset = () => {
     setRows([{ id: Date.now(), column: '', search: '', min: '', max: '' }]);
     onChange({});
+    onReset?.();
   };
 
   const activeKeys = Object.keys(filters).filter(k => k === 'column' || k === 'search' || k === 'min' || k === 'max' || k.startsWith('filter_'));
@@ -424,11 +425,45 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
   const handleLoadView = (view) => {
     if (view.filters && Object.keys(view.filters).length) setFilters(view.filters);
     if (view.columns?.length) setVisibleColumns(view.columns);
+    if (view.widths && !Array.isArray(view.widths)) setColumnWidths(view.widths);
     if (view.sorting?.field)  setSort({ field: view.sorting.field, dir: view.sorting.dir || 'asc' });
     setPage(1);
   };
 
   const hasActive = Object.keys(activeFilters).filter(k => k !== 'sort').length > 0;
+
+  // ── Sync with Backend ──────────────────────────────────────
+  // 1. Initial Load
+  useEffect(() => {
+    async function fetchConfig() {
+      try {
+        const res = await api.getUserConfig('sales_report');
+        if (res.success && res.config?.column_config) {
+          const cfg = res.config.column_config;
+          // Safety: convert empty array back to object if PHP serialized it incorrectly
+          const w = (cfg.widths && !Array.isArray(cfg.widths)) ? cfg.widths : {};
+          setColumnWidths(w);
+          if (cfg.visible) setVisibleColumnsState(cfg.visible);
+        }
+      } catch (e) { console.error('Failed to load user config:', e); }
+    }
+    fetchConfig();
+  }, []);
+
+  // 2. Debounced Save
+  useEffect(() => {
+    // Only save if we have actual data to save
+    if (Object.keys(columnWidths).length === 0 && !visibleColumns) return;
+
+    const timer = setTimeout(() => {
+      api.saveUserConfig('sales_report', {
+        widths: columnWidths,
+        visible: visibleColumns
+      }).catch(e => console.error('Failed to save user config:', e));
+    }, 2000); // 2s debounce
+
+    return () => clearTimeout(timer);
+  }, [columnWidths, visibleColumns]);
 
   const handleExport = () => {
     const params = new URLSearchParams();
@@ -450,6 +485,16 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
     window.open(`${BASE_URL}/api/reports/export?${params.toString()}`, '_blank');
   };
 
+  const handleResetAll = () => {
+    setFilters({});
+    setColumnWidths({});
+    saveWidths({});
+    setVisibleColumns(null);
+    setPage(1);
+    // Explicitly notify backend about the reset
+    api.saveUserConfig('sales_report', { widths: {}, visible: null }).catch(() => {});
+  };
+
   return (
     <div>
       {/* ── Horizontal Filter Bar ──────────────────────────────── */}
@@ -457,6 +502,7 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
         columns={allColumns}
         filters={filters}
         onChange={(f) => { setFilters(f); setPage(1); }}
+        onReset={handleResetAll}
       />
 
       {/* ── Table Card ─────────────────────────────────────────── */}
@@ -498,6 +544,7 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
                   <SavedViews
                     currentFilters={filters}
                     currentColumns={visibleColumns ?? allColumns}
+                    currentWidths={columnWidths}
                     currentSorting={sort}
                     onLoadView={(v) => { handleLoadView(v); setShowSavedViews(false); }}
                   />

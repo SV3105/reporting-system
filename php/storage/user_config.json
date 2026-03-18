@@ -1,1 +1,38 @@
-[]
+[
+    {
+        "user_id": 1,
+        "report_id": "sales_report",
+        "column_config": {
+            "widths": {},
+            "visible": [
+                "product_id_i",
+                "parent_sku_s",
+                "Product_Name_s",
+                "Price_f",
+                "Map_Price_f",
+                "Type_s",
+                "Brand_Name_s",
+                "AFA_SKU_s",
+                "AFA_URL_s",
+                "AFA_PRICE_f",
+                "AFA_Name_s",
+                "Quantity_i",
+                "Date_dt",
+                "Stock_s",
+                "Last_Price_Change_dt",
+                "Extracted_URL_s",
+                "MAP_Violation_s",
+                "MAP_Violation_Date_Time_s",
+                "MAP_Violation_Screenshot_s",
+                "MAP_Violation_Screenshot_Date_Time_s",
+                "Image_URL_s",
+                "source_file_s",
+                "id",
+                "_version_",
+                "_root_"
+            ]
+        },
+        "created_at": "2026-03-18T10:58:30Z",
+        "updated_at": "2026-03-18T11:10:02Z"
+    }
+]

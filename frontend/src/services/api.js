@@ -23,4 +23,13 @@ export const api = {
   getFacets  : (fields) => apiFetch('/api/reports/facets', { fields: fields.join(',') }),
   getStats   : (field)  => apiFetch('/api/reports/stats',  { field }),
   healthCheck: ()       => apiFetch('/api/reports/health'),
+
+  getUserConfig: (reportId) => apiFetch('/api/user-config', { report_id: reportId }),
+  saveUserConfig: (reportId, config) => {
+    return fetch(`${BASE_URL}/api/user-config`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body:    JSON.stringify({ report_id: reportId, user_id: 1, column_config: config }),
+    }).then(res => res.json());
+  }
 };

@@ -88,6 +88,7 @@ class ViewModel
             'name'       => $payload['name'],
             'filters'    => $payload['filters']    ?? [],
             'columns'    => $payload['columns']    ?? [],
+            'widths'     => $payload['widths']     ?? (object)[],
             'sorting'    => $payload['sorting']    ?? [],
             'created_at' => date('Y-m-d\TH:i:s\Z'),
             'updated_at' => date('Y-m-d\TH:i:s\Z'),
@@ -111,6 +112,7 @@ class ViewModel
                 if (isset($payload['name']))    $view['name']    = $payload['name'];
                 if (isset($payload['filters'])) $view['filters'] = $payload['filters'];
                 if (isset($payload['columns'])) $view['columns'] = $payload['columns'];
+                if (isset($payload['widths']))  $view['widths']  = $payload['widths'];
                 if (isset($payload['sorting'])) $view['sorting'] = $payload['sorting'];
                 $view['updated_at'] = date('Y-m-d\TH:i:s\Z');
                 $updated = $view;

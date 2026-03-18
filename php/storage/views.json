@@ -39,5 +39,34 @@
         },
         "created_at": "2026-03-18T09:34:59Z",
         "updated_at": "2026-03-18T09:34:59Z"
+    },
+    {
+        "id": "view_69ba8742d720c9.58287275",
+        "name": "product_price",
+        "filters": {
+            "filter_Product_Name_s": "*Arc Boucle Fabric Modular Sofa In Brown*",
+            "filter_Price_f": "500,*",
+            "filter_Stock_s": "*In Stock*"
+        },
+        "columns": [
+            "product_id_i",
+            "parent_sku_s",
+            "Product_Name_s",
+            "Price_f",
+            "Date_dt",
+            "Stock_s"
+        ],
+        "widths": {
+            "parent_sku_s": 77,
+            "product_id_i": 65,
+            "Product_Name_s": 284,
+            "Price_f": 116
+        },
+        "sorting": {
+            "field": "Price_f",
+            "dir": "asc"
+        },
+        "created_at": "2026-03-18T11:06:42Z",
+        "updated_at": "2026-03-18T11:06:42Z"
     }
 ]

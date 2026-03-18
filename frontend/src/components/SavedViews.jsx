@@ -50,6 +50,7 @@ function timeAgo(iso) {
 export default function SavedViews({
   currentFilters = {},
   currentColumns = [],
+  currentWidths  = {},
   currentSorting = {},
   onLoadView,
 }) {
@@ -106,6 +107,7 @@ export default function SavedViews({
         name,
         filters: currentFilters,
         columns: currentColumns,
+        widths:  currentWidths,
         sorting: currentSorting,
       });
       setViews(prev => [view, ...prev]);
