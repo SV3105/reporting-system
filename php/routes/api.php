@@ -9,6 +9,7 @@ Router::get('/api/reports/facets',    'ReportController@facets');
 Router::get('/api/reports/stats',     'ReportController@stats');
 Router::get('/api/reports/fields',    'ReportController@fields');
 Router::get('/api/reports/health',    'ReportController@health');
+Router::get('/api/reports/export',    'ReportController@export');
 
 // ── Saved Views endpoints ─────────────────────────────────────
 Router::get   ('/api/views',      'ViewController@index');

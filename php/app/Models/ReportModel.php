@@ -100,7 +100,19 @@ class ReportModel
                 $escaped = array_map(fn($v) => '"' . addslashes($v) . '"', $value);
                 $parts[] = "{$field}:(" . implode(' OR ', $escaped) . ")";
             } elseif (str_contains((string)$value, '*')) {
-                continue; // handled via q param
+                // Support full wildcards passed from frontend in filter_* params
+                // We must properly escape spaces so Solr doesn't break the query apart
+                $subparts = explode('|', $value);
+                $escapedSubparts = array_map(function($sub) {
+                    // Escape spaces to make it a single token for wildcard evaluation
+                    return str_replace(' ', '\ ', $sub);
+                }, $subparts);
+                
+                if (count($escapedSubparts) > 1) {
+                    $parts[] = "{$field}:(" . implode(' OR ', $escapedSubparts) . ")";
+                } else {
+                    $parts[] = "{$field}:{$escapedSubparts[0]}";
+                }
             } else {
                 $parts[] = "{$field}:\"" . addslashes($value) . "\"";
             }
@@ -139,16 +151,23 @@ class ReportModel
     }
 
     // ── Calculate previous period ─────────────────────────────────
-    public function calculatePreviousPeriod(string $startDate, string $endDate): array
+    public function calculatePreviousPeriod(string $startDate, string $endDate, string $compareType = 'previous'): array
     {
         $start    = new \DateTime($startDate);
         $end      = new \DateTime($endDate);
-        $interval = $start->diff($end);
 
-        $prevEnd   = clone $start;
-        $prevEnd->modify('-1 day');
-        $prevStart = clone $prevEnd;
-        $prevStart->sub($interval);
+        if ($compareType === 'year') {
+            $prevStart = clone $start;
+            $prevStart->modify('-1 year');
+            $prevEnd   = clone $end;
+            $prevEnd->modify('-1 year');
+        } else {
+            $interval = $start->diff($end);
+            $prevEnd   = clone $start;
+            $prevEnd->modify('-1 day');
+            $prevStart = clone $prevEnd;
+            $prevStart->sub($interval);
+        }
 
         return [
             'start' => $prevStart->format('Y-m-d'),
@@ -161,8 +180,9 @@ class ReportModel
         string $dateField,
         string $startDate,
         string $endDate,
-        bool   $compare  = false,
-        array  $extraFq  = []
+        bool   $compare     = false,
+        string $compareType = 'previous',
+        array  $extraFq     = []
     ): array {
         $currentCount = $this->countInRange($dateField, $startDate, $endDate, $extraFq);
 
@@ -176,7 +196,7 @@ class ReportModel
         ];
 
         if ($compare) {
-            $prev          = $this->calculatePreviousPeriod($startDate, $endDate);
+            $prev          = $this->calculatePreviousPeriod($startDate, $endDate, $compareType);
             $previousCount = $this->countInRange($dateField, $prev['start'], $prev['end'], $extraFq);
             $difference    = $currentCount - $previousCount;
             $percentage    = $previousCount > 0
@@ -213,7 +233,7 @@ class ReportModel
         string $startDate    = '',
         string $endDate      = ''
     ): array {
-        $limit  = $limit === 0 ? 0 : min($limit, 500);
+        $limit  = $limit === 0 ? 0 : min($limit, 10000);
         $offset = max(0, ($page - 1) * $limit);
 
         // Base query

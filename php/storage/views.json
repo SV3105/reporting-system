@@ -1,22 +1,43 @@
 [
     {
-        "id": "view_69ba46ad2b01e1.94899004",
-        "name": "Price Report",
+        "id": "view_69ba71c354e034.28528462",
+        "name": "In Stock",
         "filters": {
-            "column": "Price_f",
-            "min": 100,
-            "max": 500
+            "column": "Stock_s",
+            "search": "In Stock"
         },
         "columns": [
+            "product_id_i",
+            "parent_sku_s",
             "Product_Name_s",
             "Price_f",
-            "Brand_Name_s"
+            "Map_Price_f",
+            "Type_s",
+            "Brand_Name_s",
+            "AFA_SKU_s",
+            "AFA_URL_s",
+            "AFA_PRICE_f",
+            "AFA_Name_s",
+            "Quantity_i",
+            "Date_dt",
+            "Stock_s",
+            "Last_Price_Change_dt",
+            "Extracted_URL_s",
+            "MAP_Violation_s",
+            "MAP_Violation_Date_Time_s",
+            "MAP_Violation_Screenshot_s",
+            "MAP_Violation_Screenshot_Date_Time_s",
+            "Image_URL_s",
+            "source_file_s",
+            "id",
+            "_version_",
+            "_root_"
         ],
         "sorting": {
-            "field": "Price_f",
-            "dir": "desc"
+            "field": "",
+            "dir": "asc"
         },
-        "created_at": "2026-03-18T06:31:09Z",
-        "updated_at": "2026-03-18T06:31:09Z"
+        "created_at": "2026-03-18T09:34:59Z",
+        "updated_at": "2026-03-18T09:34:59Z"
     }
 ]

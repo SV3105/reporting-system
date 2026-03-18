@@ -44,6 +44,7 @@ function DatePanel({ allFields, onDateChange, onClose }) {
   const [startDate, setStartDate] = useState(monthAgo);
   const [endDate,   setEndDate]   = useState(today);
   const [compare,   setCompare]   = useState(false);
+  const [compareType, setCompareType] = useState('previous');
   const [applied,   setApplied]   = useState(false);
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState(null);
@@ -82,6 +83,7 @@ function DatePanel({ allFields, onDateChange, onClose }) {
           start_date:  startDate,
           end_date:    endDate,
           compare:     'true',
+          compare_type: compareType,
         });
         const res  = await fetch(`${BASE_URL}/api/reports/daterange?${params}`, {
           headers: { Accept: 'application/json' },
@@ -147,12 +149,25 @@ function DatePanel({ allFields, onDateChange, onClose }) {
       </div>
 
       {/* Compare toggle */}
-      <label className="dc-compare-toggle">
-        <div className={`dc-toggle ${compare ? 'dc-toggle--on' : ''}`} onClick={() => setCompare(c => !c)}>
-          <div className="dc-toggle-thumb" />
-        </div>
-        <span className="dc-compare-label">Compare with previous period</span>
-      </label>
+      <div className="dc-compare-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <label className="dc-compare-toggle" style={{ margin: 0 }}>
+          <div className={`dc-toggle ${compare ? 'dc-toggle--on' : ''}`} onClick={() => setCompare(c => !c)}>
+            <div className="dc-toggle-thumb" />
+          </div>
+          <span className="dc-compare-label">Compare to</span>
+        </label>
+        {compare && (
+          <select 
+            className="fp-select fp-select--sm" 
+            style={{ width: 'auto', padding: '2px 8px', fontSize: 12 }} 
+            value={compareType} 
+            onChange={e => setCompareType(e.target.value)}
+          >
+            <option value="previous">Previous period</option>
+            <option value="year">Same period last year</option>
+          </select>
+        )}
+      </div>
 
       {/* Actions */}
       <div className="dc-actions">

@@ -19,6 +19,7 @@ export default function App() {
   const [facetField2,  setFacetField2]  = useState('');
   const [dateFilters,  setDateFilters]  = useState(null);
   const [navCollapsed, setNavCollapsed] = useState(false);
+  const [globalExternalFilters, setGlobalExternalFilters] = useState({});
 
   // resetKey forces ReportTable to fully remount (clears all internal filters/sort/columns)
   const [resetKey, setResetKey] = useState(0);
@@ -37,10 +38,18 @@ export default function App() {
   // ── Global Reset ──────────────────────────────────────────
   const handleResetAll = useCallback(() => {
     setDateFilters(null);          // clear date filter
-    setResetKey(k => k + 1);      // remount ReportTable → clears column filters, sort, column visibility
+    setGlobalExternalFilters({});  // clear external drill-down filters
+    setResetKey(k => k + 1);       // remount ReportTable
   }, []);
 
-  const hasAnyFilter = !!dateFilters;
+  const handleDrilldown = useCallback((field, value) => {
+    // Preserve active date filters, but inject the clicked chart sector as a new HorizontalFilter
+    setGlobalExternalFilters({ [`filter_${field}`]: `*${value}*` }); 
+    setResetKey(k => k + 1);
+    setActiveTab('reports');
+  }, []);
+
+  const hasAnyFilter = !!dateFilters || Object.keys(globalExternalFilters).length > 0;
 
   const activeDateParams = dateFilters
     ? { date_field: dateFilters.date_field, start_date: dateFilters.start_date, end_date: dateFilters.end_date }
@@ -135,7 +144,7 @@ export default function App() {
 
           {/* Reports — key prop forces full remount on reset */}
           {activeTab === 'reports' && (
-            <ReportTable key={resetKey} extraParams={activeDateParams} />
+            <ReportTable key={resetKey} externalFilters={globalExternalFilters} extraParams={activeDateParams} />
           )}
 
           {/* Charts */}
@@ -166,8 +175,8 @@ export default function App() {
               </div>
 
               <div className="charts-grid">
-                {facetField1 && <ChartRenderer facetField={facetField1} filters={activeDateParams} />}
-                {facetField2 && <ChartRenderer facetField={facetField2} filters={activeDateParams} />}
+                {facetField1 && <ChartRenderer facetField={facetField1} filters={activeDateParams} onDrilldown={handleDrilldown} />}
+                {facetField2 && <ChartRenderer facetField={facetField2} filters={activeDateParams} onDrilldown={handleDrilldown} />}
                 {!facetField1 && !facetField2 && (
                   <div className="chart-card chart-card--placeholder" style={{ gridColumn: '1/-1' }}>
                     <span className="chart-placeholder-icon">⬡</span>

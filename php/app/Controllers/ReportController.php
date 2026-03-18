@@ -145,10 +145,11 @@ class ReportController
     public function daterange(): void
     {
         try {
-            $dateField = trim(Request::query('date_field', ''));
-            $startDate = trim(Request::query('start_date', ''));
-            $endDate   = trim(Request::query('end_date',   ''));
-            $compare   = filter_var(Request::query('compare', 'false'), FILTER_VALIDATE_BOOLEAN);
+            $dateField   = trim(Request::query('date_field', ''));
+            $startDate   = trim(Request::query('start_date', ''));
+            $endDate     = trim(Request::query('end_date',   ''));
+            $compare     = filter_var(Request::query('compare', 'false'), FILTER_VALIDATE_BOOLEAN);
+            $compareType = trim(Request::query('compare_type', 'previous')); // 'previous' or 'year'
 
             // Validate required params
             $missing = [];
@@ -185,13 +186,97 @@ class ReportController
             }
 
             $result = $this->model->dateRangeQuery(
-                $dateField, $startDate, $endDate, $compare, $extraFq
+                $dateField, $startDate, $endDate, $compare, $compareType, $extraFq
             );
 
             Response::json(['success' => true, ...$result]);
 
         } catch (\Throwable $e) {
             Response::json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    // ── GET /api/reports/export ───────────────────────────────────
+    public function export(): void
+    {
+        try {
+            // Apply all the exact same filters as index()
+            $sort  = Request::query('sort', '');
+            $column = trim(Request::query('column', ''));
+            $min    = Request::query('min',    null);
+            $max    = Request::query('max',    null);
+            $search = trim(Request::query('search', ''));
+            $dateField = trim(Request::query('date_field', ''));
+            $startDate = trim(Request::query('start_date', ''));
+            $endDate   = trim(Request::query('end_date',   ''));
+
+            $filters = [];
+            $searchField = '';
+            $searchTerm  = '';
+
+            if ($column !== '') {
+                if ($min !== null || $max !== null) {
+                    $filters[$column] = ['min' => $min ?? '*', 'max' => $max ?? '*'];
+                }
+                if ($search !== '') {
+                    $searchField = $column;
+                    $searchTerm  = $search;
+                }
+            }
+
+            foreach (Request::all() as $key => $value) {
+                if (!str_starts_with($key, 'filter_')) continue;
+                $field = substr($key, 7);
+                if (str_contains((string)$value, ',') && !str_ends_with($field, '_s')) {
+                    [$fMin, $fMax] = explode(',', $value, 2);
+                    $filters[$field] = ['min' => trim($fMin), 'max' => trim($fMax)];
+                } elseif (str_contains((string)$value, '|')) {
+                    $filters[$field] = explode('|', $value);
+                } else {
+                    $filters[$field] = $value;
+                }
+            }
+
+            // Fetch up to 10,000 records
+            $data = $this->model->search(
+                $filters, 1, 10000, $sort, [],
+                $searchField, $searchTerm,
+                [], 50,
+                $dateField, $startDate, $endDate
+            );
+
+            $records = $data['records'] ?? [];
+
+            // Stream CSV
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="report_export_' . date('Y-m-d') . '.csv"');
+            
+            $out = fopen('php://output', 'w');
+
+            if (empty($records)) {
+                fputcsv($out, ['No records found matching filters.']);
+            } else {
+                $headers = array_keys((array)$records[0]);
+                // Exclude internal solr fields
+                $headers = array_filter($headers, fn($h) => !in_array($h, ['_version_', '_root_', '_nest_path_']));
+                fputcsv($out, $headers);
+
+                foreach ($records as $row) {
+                    $csvRow = [];
+                    foreach ($headers as $h) {
+                        $val = $row[$h] ?? '';
+                        if (is_array($val)) $val = implode(', ', $val);
+                        $csvRow[] = $val;
+                    }
+                    fputcsv($out, $csvRow);
+                }
+            }
+
+            fclose($out);
+            exit;
+
+        } catch (\Throwable $e) {
+            Response::json(['success' => false, 'error' => 'Export failed: ' . $e->getMessage()], 500);
         }
     }
 
