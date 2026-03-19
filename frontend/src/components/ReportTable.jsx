@@ -497,7 +497,7 @@ function VirtualTable({
 }
 
 // ── Main ReportTable ──────────────────────────────────────────
-export default function ReportTable({ externalFilters, extraParams = {} } = {}) {
+export default function ReportTable({ externalFilters, extraParams = {}, filterControl, resetControl } = {}) {
   const [filters,        setFilters]        = useState(externalFilters ?? {});
   const [sort,           setSort]           = useState({ field: '', dir: 'asc' });
   const [visibleColumns, setVisibleColumnsState] = useState(loadVisibleCols);
@@ -619,7 +619,6 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
         {/* Toolbar */}
         <div className="toolbar">
           <div className="toolbar-left">
-            <h2 className="table-title">Reports</h2>
             {total > 0 && <span className="total-badge">{total.toLocaleString()} records</span>}
             {hasActive  && (
               <span className="filtered-badge">
@@ -629,12 +628,13 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
           </div>
 
           <div className="toolbar-right">
-            {/* Filters toggle moved to App.jsx topbar */}
-
-            {/* Export button */}
-            <button className="btn btn-outline" onClick={handleExport} title="Download current view as CSV">
-              📥 Export CSV
+            {/* Refresh button - Leftmost active data action */}
+            <button className="btn btn-outline" onClick={refetch} disabled={loading}>
+              {loading ? '⟳' : '↻'} Refresh
             </button>
+
+            {/* Filter Dropdown */}
+            {filterControl}
 
             {/* Column selector */}
             {allColumns.length > 0 && (
@@ -648,10 +648,13 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
             {/* Saved views */}
             <div style={{ position: 'relative' }}>
               <button
-                className={`btn btn-outline ${showSavedViews ? 'btn-outline--active' : ''}`}
+                className={`btn btn-outline btn-icon ${showSavedViews ? 'btn-outline--active' : ''}`}
                 onClick={() => setShowSavedViews(s => !s)}
+                title="Saved Views"
               >
-                ⊕ Views
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                </svg>
               </button>
               {showSavedViews && (
                 <div className="sv-dropdown">
@@ -667,6 +670,15 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
               {showSavedViews && <div className="col-backdrop" onClick={() => setShowSavedViews(false)} />}
             </div>
 
+            {/* Export button - Right side safe action */}
+            <button className="btn btn-outline btn-icon" onClick={handleExport} title="Export current view as CSV">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </button>
+
             {/* Reset widths */}
             {Object.keys(columnWidths).length > 0 && (
               <button className="btn btn-ghost btn-sm" onClick={() => { setColumnWidths({}); saveWidths({}); }}>
@@ -674,9 +686,8 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
               </button>
             )}
 
-            <button className="btn btn-outline" onClick={refetch} disabled={loading}>
-              {loading ? '⟳' : '↻'} Refresh
-            </button>
+            {/* Reset All button - Rightmost destructive action */}
+            {resetControl}
           </div>
         </div>
 

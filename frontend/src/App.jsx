@@ -1,5 +1,5 @@
 // src/App.jsx — Vertical nav + full-width content, filters in toolbar
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import ReportTable, { HorizontalFilters } from './components/ReportTable';
 import ChartRenderer  from './components/ChartRenderer';
 import DateComparison from './components/DateComparison';
@@ -7,8 +7,30 @@ import { api }        from './services/api';
 import './App.css';
 
 const NAV_ITEMS = [
-  { id: 'reports', label: 'Reports', icon: '⊞' },
-  { id: 'charts',  label: 'Charts',  icon: '⬡' },
+  { 
+    id: 'reports', 
+    label: 'Reports', 
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <line x1="3" y1="9" x2="21" y2="9"/>
+        <line x1="9" y1="21" x2="9" y2="9"/>
+      </svg>
+    ) 
+  },
+  { 
+    id: 'charts',  
+    label: 'Charts',  
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+        <polyline points="2 17 8.5 10.5 13.5 15.5 22 7"/>
+        <polyline points="16 7 22 7 22 13"/>
+      </svg>
+    ) 
+  },
 ];
 
 export default function App() {
@@ -16,7 +38,13 @@ export default function App() {
   const [activeTab,    setActiveTab]    = useState('reports');
   const [allFields,    setAllFields]    = useState([]);
   const [facetField1,  setFacetField1]  = useState('');
+  const [yAxisFunc1,   setYAxisFunc1]   = useState('count');
+  const [yAxisField1,  setYAxisField1]  = useState('');
+
   const [facetField2,  setFacetField2]  = useState('');
+  const [yAxisFunc2,   setYAxisFunc2]   = useState('count');
+  const [yAxisField2,  setYAxisField2]  = useState('');
+
   const [dateFilters,  setDateFilters]  = useState(null);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [globalExternalFilters, setGlobalExternalFilters] = useState({});
@@ -55,6 +83,10 @@ export default function App() {
     setResetKey(k => k + 1);
     setActiveTab('reports');
   }, []);
+
+  const numericFields = useMemo(() => allFields.filter(f => 
+    f.match(/_[ifdp]$/i) || f.match(/price|cost|qty|amount|count/i)
+  ), [allFields]);
 
   const hasAnyFilter = !!dateFilters || Object.keys(globalExternalFilters).length > 0;
 
@@ -122,70 +154,6 @@ export default function App() {
           </div>
 
           <div className="topbar-right">
-            {/* ── Unified Filter Center ── */}
-            {activeTab === 'reports' && (
-              <div style={{ position: 'relative' }}>
-                <button
-                  className={`btn btn-outline ${showFilters ? 'btn-outline--active' : ''} ${activeFilterCount > 0 ? 'btn-active-highlight' : ''}`}
-                  onClick={() => setShowFilters(s => !s)}
-                >
-                  <span style={{ fontSize: 18 }}>⊡</span>
-                  Filters
-                  {activeFilterCount > 0 && <span className="badge-count" style={{ marginLeft: 6 }}>{activeFilterCount}</span>}
-                </button>
-
-                {showFilters && (
-                  <div className="filter-dropdown filter-dropdown--unified">
-                    <div className="dropdown-header">
-                      <span>Filter Center</span>
-                      <button className="btn-close" onClick={() => setShowFilters(false)}>✕</button>
-                    </div>
-                    
-                    <div className="dropdown-body">
-                      {/* Section 1: Time Range */}
-                      <div className="filter-section">
-                        <div className="section-title">🕒 Time Range</div>
-                        <DateComparison
-                          key={resetKey}
-                          allFields={allFields}
-                          onDateChange={setDateFilters}
-                          compact
-                        />
-                      </div>
-
-                      <div className="section-divider" />
-
-                      {/* Section 2: Field Filters */}
-                      <div className="filter-section">
-                        <div className="section-title">⊞ Field Filters</div>
-                        <HorizontalFilters
-                          columns={allFields}
-                          filters={reportFilters}
-                          onChange={(f) => setReportFilters(f)}
-                          onReset={handleResetAll}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="dropdown-footer">
-                       <button className="btn btn-primary btn-sm btn-wide" onClick={() => setShowFilters(false)}>Done</button>
-                    </div>
-                  </div>
-                )}
-                {showFilters && <div className="col-backdrop" style={{ zIndex: 199 }} onClick={() => setShowFilters(false)} />}
-              </div>
-            )}
-
-            {/* ── Reset ALL button ── */}
-            {activeTab === 'reports' && (
-              <button
-                className={`btn btn-reset-all ${hasAnyFilter || activeFilterCount > 0 ? 'btn-reset-all--active' : ''}`}
-                onClick={handleResetAll}
-                title="Clear all filters, date range, sorting, and column selection"
-              >
-                ↺ Reset All
-              </button>
-            )}
             <span className="topbar-meta">
               {new Date().toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' })}
             </span>
@@ -203,6 +171,70 @@ export default function App() {
               onFiltersChange={setReportFilters}
               showFilterDropdown={showFilters}
               onCloseFilters={() => setShowFilters(false)}
+              filterControl={
+                <div className="filter-center-wrapper">
+                  <button
+                    className={`btn btn-outline btn-icon ${showFilters ? 'btn-outline--active' : ''} ${activeFilterCount > 0 ? 'btn-active-highlight' : ''}`}
+                    onClick={() => setShowFilters(s => !s)}
+                    style={{ position: 'relative' }}
+                    title="Filters"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                    </svg>
+                    {activeFilterCount > 0 && <span className="badge-count">{activeFilterCount}</span>}
+                  </button>
+
+                  {showFilters && (
+                    <div className="filter-dropdown filter-dropdown--unified">
+                      <div className="dropdown-header">
+                        <span>Filter Center</span>
+                        <button className="btn-close" onClick={() => setShowFilters(false)}>✕</button>
+                      </div>
+                      
+                      <div className="dropdown-body">
+                        {/* Section 1: Time Range */}
+                        <div className="filter-section">
+                          <div className="section-title">🕒 Time Range</div>
+                          <DateComparison
+                            key={resetKey}
+                            allFields={allFields}
+                            onDateChange={setDateFilters}
+                            compact
+                          />
+                        </div>
+
+                        <div className="section-divider" />
+
+                        {/* Section 2: Field Filters */}
+                        <div className="filter-section">
+                          <div className="section-title">⊞ Field Filters</div>
+                          <HorizontalFilters
+                            columns={allFields}
+                            filters={reportFilters}
+                            onChange={(f) => setReportFilters(f)}
+                            onReset={handleResetAll}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="dropdown-footer">
+                         <button className="btn btn-primary btn-sm btn-wide" onClick={() => setShowFilters(false)}>Done</button>
+                      </div>
+                    </div>
+                  )}
+                  {showFilters && <div className="col-backdrop" style={{ zIndex: 199 }} onClick={() => setShowFilters(false)} />}
+                </div>
+              }
+              resetControl={
+                <button
+                  className={`btn btn-reset-all ${hasAnyFilter || activeFilterCount > 0 ? 'btn-reset-all--active' : ''}`}
+                  onClick={handleResetAll}
+                  title="Clear all filters, date range, sorting, and column selection"
+                >
+                  ↺ Reset All
+                </button>
+              }
             />
           )}
 
@@ -210,32 +242,99 @@ export default function App() {
           {activeTab === 'charts' && (
             <div className="charts-page">
               <div className="charts-controls">
-                <h2 className="charts-heading">⬡ Chart Explorer</h2>
+                <h2 className="charts-heading">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 10, verticalAlign: 'middle', color: 'var(--accent)' }}>
+                    <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>
+                  </svg>
+                  Chart Explorer
+                </h2>
                 <div className="charts-field-pickers">
                   <div className="fp-group">
-                    <label className="fp-label">Chart 1 — Field</label>
+                    <label className="fp-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16V8"/><path d="M11 16V12"/><path d="M15 16V10"/><path d="M19 16V4"/></svg>
+                      Chart 1 — X-Axis
+                    </label>
                     <select className="fp-select" value={facetField1} onChange={e => setFacetField1(e.target.value)}>
-                      <option value="">— select —</option>
+                      <option value="">— select category —</option>
                       {allFields.map(f => <option key={f} value={f}>{f}</option>)}
                     </select>
+
+                    <label className="fp-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M3 7h12"/><path d="M3 12h8"/><path d="M3 17h4"/></svg>
+                      Y-Axis Metric
+                    </label>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <select className="fp-select" value={yAxisFunc1} onChange={e => setYAxisFunc1(e.target.value)} style={{ width: 90 }}>
+                        <option value="count">Count</option>
+                        <option value="sum">Sum</option>
+                        <option value="avg">Avg</option>
+                      </select>
+                      {yAxisFunc1 !== 'count' && (
+                        <select className="fp-select" value={yAxisField1} onChange={e => setYAxisField1(e.target.value)} style={{ flex: 1 }}>
+                          <option value="">— field —</option>
+                          {numericFields.map(f => <option key={f} value={f}>{f}</option>)}
+                        </select>
+                      )}
+                    </div>
                   </div>
+                  
                   <div className="fp-group">
-                    <label className="fp-label">Chart 2 — Field</label>
+                    <label className="fp-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16V8"/><path d="M11 16V12"/><path d="M15 16V10"/><path d="M19 16V4"/></svg>
+                      Chart 2 — X-Axis
+                    </label>
                     <select className="fp-select" value={facetField2} onChange={e => setFacetField2(e.target.value)}>
-                      <option value="">— select —</option>
+                      <option value="">— select category —</option>
                       {allFields.map(f => <option key={f} value={f}>{f}</option>)}
                     </select>
+
+                    <label className="fp-label" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M3 7h12"/><path d="M3 12h8"/><path d="M3 17h4"/></svg>
+                      Y-Axis Metric
+                    </label>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <select className="fp-select" value={yAxisFunc2} onChange={e => setYAxisFunc2(e.target.value)} style={{ width: 90 }}>
+                        <option value="count">Count</option>
+                        <option value="sum">Sum</option>
+                        <option value="avg">Avg</option>
+                      </select>
+                      {yAxisFunc2 !== 'count' && (
+                        <select className="fp-select" value={yAxisField2} onChange={e => setYAxisField2(e.target.value)} style={{ flex: 1 }}>
+                          <option value="">— field —</option>
+                          {numericFields.map(f => <option key={f} value={f}>{f}</option>)}
+                        </select>
+                      )}
+                    </div>
                   </div>
                   <div className="fp-group" style={{ flex: 2, minWidth: '320px' }}>
-                    <label className="fp-label">Date Filter</label>
+                    <label className="fp-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      Date Filter
+                    </label>
                     <DateComparison allFields={allFields} onDateChange={setDateFilters} compact />
                   </div>
                 </div>
               </div>
 
               <div className="charts-grid">
-                {facetField1 && <ChartRenderer facetField={facetField1} filters={activeDateParams} onDrilldown={handleDrilldown} />}
-                {facetField2 && <ChartRenderer facetField={facetField2} filters={activeDateParams} onDrilldown={handleDrilldown} />}
+                {facetField1 && (
+                  <ChartRenderer 
+                    facetField={facetField1} 
+                    yAxisFunc={yAxisFunc1}
+                    yAxisField={yAxisField1}
+                    filters={activeDateParams} 
+                    onDrilldown={handleDrilldown} 
+                  />
+                )}
+                {facetField2 && (
+                  <ChartRenderer 
+                    facetField={facetField2} 
+                    yAxisFunc={yAxisFunc2}
+                    yAxisField={yAxisField2}
+                    filters={activeDateParams} 
+                    onDrilldown={handleDrilldown} 
+                  />
+                )}
                 {!facetField1 && !facetField2 && (
                   <div className="chart-card chart-card--placeholder" style={{ gridColumn: '1/-1' }}>
                     <span className="chart-placeholder-icon">⬡</span>

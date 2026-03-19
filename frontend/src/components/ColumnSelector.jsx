@@ -61,10 +61,19 @@ export default function ColumnSelector({ allColumns, visibleColumns, onChange })
 
   return (
     <div className="col-selector-wrapper">
-      <button className="btn btn-outline" onClick={() => setOpen(o => !o)}>
-        <span className="btn-icon">⊞</span>
-        Columns
-        <span className="badge">{visibleColumns.length}/{allColumns.length}</span>
+      <button className={`btn btn-outline btn-icon ${open ? 'btn-outline--active' : ''}`} onClick={() => setOpen(o => !o)} title="Select Columns" style={{ position: 'relative' }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {/* Main Grid */}
+          <rect x="3" y="3" width="18" height="18" rx="1"/>
+          <line x1="9" y1="3" x2="9" y2="21"/>
+          <line x1="15" y1="3" x2="15" y2="21"/>
+          <line x1="3" y1="9" x2="21" y2="9"/>
+          <line x1="3" y1="15" x2="21" y2="15"/>
+          {/* Highlighted column indicator (Down arrow in middle) */}
+          <path d="M12 5v10" strokeWidth="2.5" stroke="currentColor"/>
+          <path d="M9 12l3 3 3-3" stroke="currentColor"/>
+        </svg>
+        <span className="badge-count">{visibleColumns.length}/{allColumns.length}</span>
       </button>
 
       {open && (

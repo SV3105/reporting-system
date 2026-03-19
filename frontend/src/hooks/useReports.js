@@ -25,7 +25,8 @@ export function useReports(filters = {}) {
         }
       });
 
-      const data = await api.getReports(params, { signal });
+      const fetchOpts = (signal instanceof AbortSignal) ? { signal } : {};
+      const data = await api.getReports(params, fetchOpts);
       setRecords(data.records    ?? []);
       setTotal(data.total        ?? 0);
       setTotalPages(data.total_pages ?? 0);
@@ -34,7 +35,7 @@ export function useReports(filters = {}) {
       setError(err.message);
       setRecords([]);
     } finally {
-      if (!signal.aborted) setLoading(false);
+      if (!signal || (signal instanceof AbortSignal && !signal.aborted)) setLoading(false);
     }
   }, [page, limit, JSON.stringify(filters)]); // eslint-disable-line
 
@@ -44,11 +45,13 @@ export function useReports(filters = {}) {
     return () => controller.abort();
   }, [fetchReports]);
 
+  const refetch = useCallback(() => fetchReports(), [fetchReports]);
+
   return {
     records, total, totalPages,
     page, setPage,
     limit, setLimit,
     loading, error,
-    refetch: fetchReports,
+    refetch,
   };
 }

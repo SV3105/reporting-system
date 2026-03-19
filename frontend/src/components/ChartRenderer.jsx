@@ -5,7 +5,7 @@
 //   filters     object   Active filters to scope the chart data
 //   title       string   Optional chart title override
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
@@ -29,14 +29,14 @@ const CHART_TYPES = [
 ];
 
 // ── Custom Tooltip ────────────────────────────────────────────
-function CustomTooltip({ active, payload, label }) {
+function CustomTooltip({ active, payload, label, formatter, unitLabel }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="chart-tooltip">
       <p className="chart-tooltip__label">{label ?? payload[0]?.name}</p>
       <p className="chart-tooltip__value">
-        {payload[0]?.value?.toLocaleString()}
-        <span className="chart-tooltip__unit"> records</span>
+        {formatter ? formatter(payload[0]?.value) : payload[0]?.value?.toLocaleString()}
+        {unitLabel && <span className="chart-tooltip__unit"> {unitLabel}</span>}
       </p>
     </div>
   );
@@ -59,7 +59,7 @@ function PieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }) {
 
 
 // ── Main Component ────────────────────────────────────────────
-export default function ChartRenderer({ facetField, filters = {}, title, onDrilldown }) {
+export default function ChartRenderer({ facetField, yAxisFunc = 'count', yAxisField = '', filters = {}, title, onDrilldown }) {
   const [chartData,  setChartData]  = useState([]);
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
@@ -129,6 +129,11 @@ export default function ChartRenderer({ facetField, filters = {}, title, onDrill
           ...filters,
         });
 
+        if (yAxisFunc && yAxisFunc !== 'count' && yAxisField) {
+            params.append('y_axis_func', yAxisFunc);
+            params.append('y_axis_field', yAxisField);
+        }
+
         const res  = await fetch(`${BASE_URL}/api/reports?${params}`, {
           signal:  controller.signal,
           headers: { Accept: 'application/json' },
@@ -154,7 +159,7 @@ export default function ChartRenderer({ facetField, filters = {}, title, onDrill
 
     fetchFacets();
     return () => controller.abort();
-  }, [facetField, JSON.stringify(filters)]); // eslint-disable-line
+  }, [facetField, yAxisFunc, yAxisField, JSON.stringify(filters)]); // eslint-disable-line
 
   // Slice to topN
   const displayed = useMemo(() => chartData.slice(0, topN), [chartData, topN]);
@@ -164,13 +169,27 @@ export default function ChartRenderer({ facetField, filters = {}, title, onDrill
     [displayed]
   );
 
-  const chartTitle = title ?? facetField?.replace(/_[sifbdt]$/, '').replace(/_/g, ' ') ?? 'Chart';
+  const isCurrency = yAxisField.toLowerCase().includes('price') || yAxisField.toLowerCase().includes('cost') || yAxisField.toLowerCase().includes('amount');
+  const formatValue = useCallback((val) => {
+    if (val == null) return '';
+    if (yAxisFunc === 'count') return val.toLocaleString();
+    if (isCurrency) return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(val);
+  }, [yAxisFunc, isCurrency]);
+
+  const defaultTitle = facetField?.replace(/_[sifbdt]$/, '').replace(/_/g, ' ') ?? 'Chart';
+  const metricLabel = yAxisFunc === 'count' ? '' : ` (${yAxisFunc.toUpperCase()} of ${yAxisField.replace(/_[sifbdt]$/, '').replace(/_/g, ' ')})`;
+  const chartTitle = title ?? `${error ? 'Error' : defaultTitle}${metricLabel}`;
 
   // ── Empty / loading / error guards ───────────────────────────
   if (!facetField) {
     return (
       <div className="chart-card chart-card--placeholder">
-        <span className="chart-placeholder-icon">◈</span>
+        <span className="chart-placeholder-icon">
+          <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.2 }}>
+            <path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>
+          </svg>
+        </span>
         <p>Select a field to visualize</p>
       </div>
     );
@@ -185,7 +204,10 @@ export default function ChartRenderer({ facetField, filters = {}, title, onDrill
           <h3 className="chart-title">{chartTitle}</h3>
           {!loading && chartData.length > 0 && (
             <span className="chart-meta">
-              {total.toLocaleString()} records · {chartData.length} values
+              {yAxisFunc === 'count' 
+                ? `${total.toLocaleString()} records`
+                : `${formatValue(total)} overall`
+              } · {chartData.length} values
             </span>
           )}
         </div>
@@ -209,19 +231,31 @@ export default function ChartRenderer({ facetField, filters = {}, title, onDrill
                 key={ct.id}
                 className={`chart-type-btn ${chartType === ct.id ? 'active' : ''}`}
                 onClick={() => setChartType(ct.id)}
+                title={ct.label}
               >
-                {ct.id === 'bar' ? '▦' : ct.id === 'line' ? '📈' : '◑'} {ct.label}
+                {ct.id === 'bar' && (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+                )}
+                {ct.id === 'line' && (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                )}
+                {ct.id === 'pie' && (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                )}
               </button>
             ))}
           </div>
 
           <button 
-            className="btn btn-outline" 
+            className="btn btn-outline btn-icon" 
             onClick={exportChart} 
             title="Download chart as PNG image"
-            style={{ padding: '5px 12px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            📥
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
           </button>
         </div>
       </div>
@@ -269,9 +303,10 @@ export default function ChartRenderer({ facetField, filters = {}, title, onDrill
                   tick={{ fill: '#5a82ab', fontSize: 11, fontFamily: 'DM Mono, monospace' }}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={v => v.toLocaleString()}
+                  tickFormatter={formatValue}
+                  width={60}
                 />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(43,127,255,.06)' }} />
+                <Tooltip content={<CustomTooltip formatter={formatValue} unitLabel={yAxisFunc === 'count' ? 'records' : ''} />} cursor={{ fill: 'rgba(43,127,255,.06)' }} />
                 <Bar 
                   dataKey="value" 
                   radius={[4, 4, 0, 0]} 
@@ -312,9 +347,10 @@ export default function ChartRenderer({ facetField, filters = {}, title, onDrill
                   tick={{ fill: '#5a82ab', fontSize: 11, fontFamily: 'DM Mono, monospace' }}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={v => v.toLocaleString()}
+                  tickFormatter={formatValue}
+                  width={60}
                 />
-                <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(43,127,255,.2)', strokeWidth: 32 }} />
+                <Tooltip content={<CustomTooltip formatter={formatValue} unitLabel={yAxisFunc === 'count' ? 'records' : ''} />} cursor={{ stroke: 'rgba(43,127,255,.2)', strokeWidth: 32 }} />
                 <Line 
                   type="monotone" 
                   dataKey="value" 
@@ -350,7 +386,7 @@ export default function ChartRenderer({ facetField, filters = {}, title, onDrill
                     <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip formatter={formatValue} unitLabel={yAxisFunc === 'count' ? 'records' : ''} />} />
                 <Legend
                   iconType="circle"
                   iconSize={8}
