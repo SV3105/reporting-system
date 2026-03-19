@@ -13,31 +13,36 @@ export function useReports(filters = {}) {
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState(null);
 
-  const fetchReports = useCallback(async () => {
+  const fetchReports = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
       const params = { page, limit, ...filters };
       // Strip empty values
-      Object.keys(params).forEach(k => {
-        if (params[k] === '' || params[k] === null || params[k] === undefined) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v === '' || v === null || v === undefined) {
           delete params[k];
         }
       });
 
-      const data = await api.getReports(params);
+      const data = await api.getReports(params, { signal });
       setRecords(data.records    ?? []);
       setTotal(data.total        ?? 0);
       setTotalPages(data.total_pages ?? 0);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       setError(err.message);
       setRecords([]);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [page, limit, JSON.stringify(filters)]); // eslint-disable-line
 
-  useEffect(() => { fetchReports(); }, [fetchReports]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchReports(controller.signal);
+    return () => controller.abort();
+  }, [fetchReports]);
 
   return {
     records, total, totalPages,

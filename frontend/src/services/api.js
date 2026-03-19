@@ -3,11 +3,14 @@
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-async function apiFetch(endpoint, params = {}) {
+async function apiFetch(endpoint, params = {}, options = {}) {
   const query = new URLSearchParams(params).toString();
   const url   = `${BASE_URL}${endpoint}${query ? '?' + query : ''}`;
 
-  const res  = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  const res  = await fetch(url, { 
+    headers: { 'Accept': 'application/json' },
+    ...options
+  });
   const data = await res.json();
 
   if (!res.ok || !data.success) {
@@ -18,7 +21,7 @@ async function apiFetch(endpoint, params = {}) {
 }
 
 export const api = {
-  getReports : (params) => apiFetch('/api/reports', params),
+  getReports : (params, options) => apiFetch('/api/reports', params, options),
   getFields  : ()       => apiFetch('/api/reports/fields'),
   getFacets  : (fields) => apiFetch('/api/reports/facets', { fields: fields.join(',') }),
   getStats   : (field)  => apiFetch('/api/reports/stats',  { field }),

@@ -1,6 +1,6 @@
 // src/App.jsx — Vertical nav + full-width content, filters in toolbar
 import { useState, useEffect, useCallback } from 'react';
-import ReportTable    from './components/ReportTable';
+import ReportTable, { HorizontalFilters } from './components/ReportTable';
 import ChartRenderer  from './components/ChartRenderer';
 import DateComparison from './components/DateComparison';
 import { api }        from './services/api';
@@ -20,6 +20,8 @@ export default function App() {
   const [dateFilters,  setDateFilters]  = useState(null);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [globalExternalFilters, setGlobalExternalFilters] = useState({});
+  const [reportFilters, setReportFilters] = useState({});
+  const [showFilters,    setShowFilters]    = useState(false);
 
   // resetKey forces ReportTable to fully remount (clears all internal filters/sort/columns)
   const [resetKey, setResetKey] = useState(0);
@@ -39,6 +41,7 @@ export default function App() {
   const handleResetAll = useCallback(() => {
     setDateFilters(null);          // clear date filter
     setGlobalExternalFilters({});  // clear external drill-down filters
+    setReportFilters({});          // clear report-specific filters
     setResetKey(k => k + 1);       // remount ReportTable
   }, []);
 
@@ -58,6 +61,9 @@ export default function App() {
   const activeDateParams = dateFilters
     ? { date_field: dateFilters.date_field, start_date: dateFilters.start_date, end_date: dateFilters.end_date }
     : {};
+
+  const fieldFilterCount = Object.keys(reportFilters).filter(k => k !== 'sort' && k !== 'page' && k !== 'limit').length;
+  const activeFilterCount = fieldFilterCount + (dateFilters ? 1 : 0);
 
   return (
     <div className="app-shell">
@@ -115,23 +121,65 @@ export default function App() {
             )}
           </div>
 
-          {/* Date filter — compact dropdown */}
-          {activeTab === 'reports' && (
-            <div className="topbar-date">
-              <DateComparison
-                key={resetKey}
-                allFields={allFields}
-                onDateChange={setDateFilters}
-                compact
-              />
-            </div>
-          )}
-
           <div className="topbar-right">
+            {/* ── Unified Filter Center ── */}
+            {activeTab === 'reports' && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  className={`btn btn-outline ${showFilters ? 'btn-outline--active' : ''} ${activeFilterCount > 0 ? 'btn-active-highlight' : ''}`}
+                  onClick={() => setShowFilters(s => !s)}
+                >
+                  <span style={{ fontSize: 18 }}>⊡</span>
+                  Filters
+                  {activeFilterCount > 0 && <span className="badge-count" style={{ marginLeft: 6 }}>{activeFilterCount}</span>}
+                </button>
+
+                {showFilters && (
+                  <div className="filter-dropdown filter-dropdown--unified">
+                    <div className="dropdown-header">
+                      <span>Filter Center</span>
+                      <button className="btn-close" onClick={() => setShowFilters(false)}>✕</button>
+                    </div>
+                    
+                    <div className="dropdown-body">
+                      {/* Section 1: Time Range */}
+                      <div className="filter-section">
+                        <div className="section-title">🕒 Time Range</div>
+                        <DateComparison
+                          key={resetKey}
+                          allFields={allFields}
+                          onDateChange={setDateFilters}
+                          compact
+                        />
+                      </div>
+
+                      <div className="section-divider" />
+
+                      {/* Section 2: Field Filters */}
+                      <div className="filter-section">
+                        <div className="section-title">⊞ Field Filters</div>
+                        <HorizontalFilters
+                          columns={allFields}
+                          filters={reportFilters}
+                          onChange={(f) => setReportFilters(f)}
+                          onReset={handleResetAll}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="dropdown-footer">
+                       <button className="btn btn-primary btn-sm btn-wide" onClick={() => setShowFilters(false)}>Done</button>
+                    </div>
+                  </div>
+                )}
+                {showFilters && <div className="col-backdrop" style={{ zIndex: 199 }} onClick={() => setShowFilters(false)} />}
+              </div>
+            )}
+
             {/* ── Reset ALL button ── */}
             {activeTab === 'reports' && (
               <button
-                className={`btn btn-reset-all ${hasAnyFilter ? 'btn-reset-all--active' : ''}`}
+                className={`btn btn-reset-all ${hasAnyFilter || activeFilterCount > 0 ? 'btn-reset-all--active' : ''}`}
                 onClick={handleResetAll}
                 title="Clear all filters, date range, sorting, and column selection"
               >
@@ -148,7 +196,14 @@ export default function App() {
 
           {/* Reports — key prop forces full remount on reset */}
           {activeTab === 'reports' && (
-            <ReportTable key={resetKey} externalFilters={globalExternalFilters} extraParams={activeDateParams} />
+            <ReportTable 
+              key={resetKey} 
+              externalFilters={{...globalExternalFilters, ...reportFilters}} 
+              extraParams={activeDateParams}
+              onFiltersChange={setReportFilters}
+              showFilterDropdown={showFilters}
+              onCloseFilters={() => setShowFilters(false)}
+            />
           )}
 
           {/* Charts */}
@@ -171,7 +226,7 @@ export default function App() {
                       {allFields.map(f => <option key={f} value={f}>{f}</option>)}
                     </select>
                   </div>
-                  <div className="fp-group" style={{ flex: 2 }}>
+                  <div className="fp-group" style={{ flex: 2, minWidth: '320px' }}>
                     <label className="fp-label">Date Filter</label>
                     <DateComparison allFields={allFields} onDateChange={setDateFilters} compact />
                   </div>

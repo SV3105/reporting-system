@@ -459,9 +459,7 @@ body {
   border:        1px solid var(--border-light);
   border-radius: var(--radius-lg);
   padding:       14px 16px;
-  margin-bottom: 12px;
-  box-shadow:    var(--shadow-sm);
-  border-top:    3px solid var(--primary);
+  /* margin-bottom removed as it's now in a dropdown */
 }
 
 .hfilter-row {
@@ -508,6 +506,111 @@ body {
   border-radius: 20px;
   font-size:     11px;
   font-weight:   500;
+}
+
+.filter-dropdown {
+  position:      absolute;
+  top:           calc(100% + 10px);
+  right:         0;
+  background:    rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  border:        1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  box-shadow:    0 10px 40px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
+  width:         760px;
+  max-width:     calc(100vw - 40px);
+  z-index:       300;
+  overflow:      visible;
+  animation:     fadeDown .25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.filter-dropdown--unified {
+  top: 52px;
+  right: 16px;
+}
+
+.filter-dropdown .dropdown-header {
+  display:         flex;
+  justify-content: space-between;
+  align-items:     center;
+  padding:         14px 20px;
+  border-bottom:   1px solid var(--border-light);
+  background:      rgba(248, 249, 250, 0.5);
+  font-size:       13px;
+  font-weight:     700;
+  color:           var(--text-primary);
+  border-radius:   12px 12px 0 0;
+  text-transform:  uppercase;
+  letter-spacing:  0.05em;
+}
+
+.filter-dropdown .dropdown-body {
+  padding: 0; /* padding handled by sections */
+}
+
+.filter-section {
+  padding: 20px;
+}
+
+.section-title {
+  font-size:      11px;
+  font-weight:    800;
+  color:          var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom:  12px;
+  display:        flex;
+  align-items:    center;
+  gap:            8px;
+}
+
+.section-divider {
+  height:     1px;
+  background: linear-gradient(to right, transparent, var(--border-light), transparent);
+}
+
+.dropdown-footer {
+  padding: 12px 20px;
+  background: rgba(248, 249, 250, 0.5);
+  border-top: 1px solid var(--border-light);
+  border-radius: 0 0 12px 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-active-highlight {
+  border-color: var(--primary) !important;
+  background:   var(--primary-light) !important;
+  box-shadow:   0 0 0 2px var(--primary-mid);
+}
+
+.filter-dropdown .btn-close {
+  background:    rgba(0,0,0,0.05);
+  border:        none;
+  width:         24px;
+  height:        24px;
+  border-radius: 50%;
+  color:         var(--text-muted);
+  cursor:        pointer;
+  display:       flex;
+  align-items:   center;
+  justify-content: center;
+  font-size:     10px;
+  transition:    all 0.2s;
+}
+.filter-dropdown .btn-close:hover { background: var(--danger); color: #fff; }
+
+.badge-count {
+  background:    var(--primary);
+  color:         #fff;
+  font-size:     10px;
+  font-weight:   700;
+  padding:       2px 6px;
+  border-radius: 10px;
+  min-width:     18px;
+  text-align:    center;
+  display:       inline-block;
+  box-shadow:    0 2px 4px rgba(99, 102, 241, 0.3);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -685,10 +788,11 @@ body {
 .rt-th:hover .rt-resize-handle::after,
 .rt-resize-handle:hover::after { background: var(--primary); width: 2px; right: 1px; }
 
-.rt-row { border-bottom: 1px solid var(--border-light); transition: background .08s; }
+.rt-row { border-bottom: 1px solid var(--border-light); transition: background .08s; height: 40px; }
 .rt-row:nth-child(even) { background: var(--bg-surface-2); }
 .rt-row:hover           { background: #e0edff !important; }
 .rt-row:last-child      { border-bottom: none; }
+.rt-row-spacer td { border: none !important; background: transparent !important; padding: 0 !important; }
 
 .rt-td {
   padding:        9px 14px;
@@ -939,7 +1043,7 @@ body {
 
 .dc-dates { display: flex; flex-direction: column; gap: 8px; }
 .dc-dates .fp-group { width: 100%; }
-.dc-date-input { width: 100%; }
+.dc-date-input { min-width: 140px; flex: 1; }
 
 .dc-compare-toggle {
   display:       flex;
@@ -1115,6 +1219,7 @@ body {
   display:     flex;
   align-items: flex-start;
   gap:         8px;
+  flex-wrap:   wrap; /* Fix for clipping */
 }
 
 @media (max-width: 960px) {

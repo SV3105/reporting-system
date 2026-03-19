@@ -7,6 +7,7 @@ import ColumnSelector  from './ColumnSelector';
 import Pagination      from './Pagination';
 import SavedViews      from './SavedViews';
 import { api }         from '../services/api';
+import { useDebounce } from '../hooks/useDebounce';
 
 const STORAGE_KEY       = 'report_column_widths';
 const VISIBLE_COLS_KEY  = 'report_visible_columns';
@@ -92,7 +93,7 @@ function ResizableHeader({ col, width, onSort, sortField, sortDir, onResize }) {
 }
 
 // ── Custom Autocomplete Input for String Filters ──────────────
-function AutocompleteInput({ value, onChange, onApply, options }) {
+export function AutocompleteInput({ value, onChange, onApply, options, loading, error, onFocus }) {
   const [open, setOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const ref = useRef(null);
@@ -140,27 +141,39 @@ function AutocompleteInput({ value, onChange, onApply, options }) {
         placeholder="search (or select from list)…"
         value={value}
         onChange={e => { onChange(e.target.value); setOpen(true); setFocusedIndex(-1); }}
-        onFocus={() => { setOpen(true); setFocusedIndex(-1); }}
+        onFocus={() => { setOpen(true); setFocusedIndex(-1); onFocus?.(); }}
         onKeyDown={handleKeyDown}
       />
-      {open && filtered.length > 0 && (
+      {open && (loading || error || filtered.length > 0) && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
           background: 'var(--surface, #fff)', border: '1px solid var(--border-light, #30363d)',
           borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', zIndex: 100,
           maxHeight: 250, overflowY: 'auto'
         }}>
-          {filtered.map((opt, i) => (
+          {loading && (
+            <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+              <span className="rt-spinner" style={{ marginRight: 8 }}>⟳</span> Loading options…
+            </div>
+          )}
+          {error && (
+            <div style={{ padding: '12px', textAlign: 'center', color: 'var(--danger)', fontSize: 12 }}>
+              ⚠ {error}
+            </div>
+          )}
+          {!loading && !error && filtered.map((opt, i) => (
             <div
               key={opt}
               style={{
-                padding: '8px 12px', fontSize: 13, cursor: 'pointer',
-                background: focusedIndex === i ? 'var(--primary-color, #6366f1)' : 'transparent',
-                color: focusedIndex === i ? '#fff' : 'var(--text-primary)',
+                padding: '10px 14px', fontSize: 13, cursor: 'pointer',
+                background: focusedIndex === i ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                color: focusedIndex === i ? 'var(--primary)' : 'var(--text-primary)',
+                transition: 'background 0.1s ease',
+                borderLeft: focusedIndex === i ? '3px solid var(--primary)' : '3px solid transparent'
               }}
               onMouseEnter={() => setFocusedIndex(i)}
               onMouseDown={(e) => { 
-                e.preventDefault(); // prevents input blur before onClick fires
+                e.preventDefault();
                 onChange(opt);
                 setOpen(false);
               }}
@@ -168,6 +181,11 @@ function AutocompleteInput({ value, onChange, onApply, options }) {
               {opt}
             </div>
           ))}
+          {!loading && !error && filtered.length === 0 && value && (
+            <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+              No matches found
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -175,7 +193,7 @@ function AutocompleteInput({ value, onChange, onApply, options }) {
 }
 
 // ── Horizontal Filter Bar (renders above the table always) ─────
-function HorizontalFilters({ columns, filters, onChange, onReset }) {
+export function HorizontalFilters({ columns, filters, onChange, onReset }) {
   const [facetsCache, setFacetsCache] = useState({});
   const [rows, setRows] = useState(() => {
     const initial = [];
@@ -208,19 +226,38 @@ function HorizontalFilters({ columns, filters, onChange, onReset }) {
 
   const loadFacets = async (col) => {
     if (!col || (!col.endsWith('_s') && !col.endsWith('_t'))) return;
-    if (facetsCache[col]) return;
+    
+    const current = facetsCache[col];
+    if (current?.data || current?.loading) return;
+
+    setFacetsCache(prev => ({ ...prev, [col]: { ...prev[col], loading: true, error: null } }));
+
     try {
       const res = await api.getFacets([col]);
-      setFacetsCache(prev => ({ ...prev, [col]: Object.keys(res.facets?.[col] || {}) }));
+      setFacetsCache(prev => ({ 
+        ...prev, 
+        [col]: { data: Object.keys(res.facets?.[col] || {}), loading: false, error: null } 
+      }));
     } catch (err) {
       console.error("Failed to load facets for", col, err);
+      setFacetsCache(prev => ({ 
+        ...prev, 
+        [col]: { data: null, loading: false, error: err.message || "Failed to load options" } 
+      }));
     }
   };
 
   // Pre-load facets for initial string rows
+  const debouncedRows = useDebounce(rows, 400);
+  const skipFirst = useRef(true);
+
   useEffect(() => {
-    rows.forEach(r => loadFacets(r.column));
-  }, []); // eslint-disable-line
+    if (skipFirst.current) {
+      skipFirst.current = false;
+      return;
+    }
+    apply();
+  }, [debouncedRows]); // eslint-disable-line
 
   const addRow = () => setRows(prev => [...prev, { id: Date.now(), column: '', search: '', min: '', max: '' }]);
   const removeRow = (id) => setRows(prev => prev.filter(r => r.id !== id));
@@ -336,7 +373,10 @@ function HorizontalFilters({ columns, filters, onChange, onReset }) {
                       value={row.search}
                       onChange={val => updateRow(row.id, { search: val, min: '', max: '' })}
                       onApply={apply}
-                      options={facetsCache[row.column] || []}
+                      options={facetsCache[row.column]?.data || []}
+                      loading={facetsCache[row.column]?.loading}
+                      error={facetsCache[row.column]?.error}
+                      onFocus={() => loadFacets(row.column)}
                     />
                   </div>
                 );
@@ -356,9 +396,12 @@ function HorizontalFilters({ columns, filters, onChange, onReset }) {
         })}
       </div>
 
-      <div className="hfilter-submit" style={{ marginTop: 16, display: 'flex', gap: 10, paddingLeft: 60 }}>
-        <button className="btn btn-primary btn-sm" onClick={apply}>Apply Filters</button>
+      <div className="hfilter-submit" style={{ marginTop: 16, display: 'flex', gap: 10, paddingLeft: 60, alignItems: 'center' }}>
+        <button className="btn btn-primary btn-sm" onClick={apply}>Apply Now</button>
         {hasFilter && <button className="btn btn-ghost btn-sm" onClick={reset}>✕ Clear All</button>}
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          Filters apply automatically after 400ms
+        </span>
       </div>
 
       {hasFilter && (
@@ -385,6 +428,74 @@ function HorizontalFilters({ columns, filters, onChange, onReset }) {
   );
 }
 
+// ── Virtualized Table Rendering ─────────────────────────────
+function VirtualTable({
+  records, columns, columnWidths, DEFAULT_WIDTH, 
+  handleSort, sort, handleResize 
+}) {
+  const containerRef = useRef(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const rowHeight = 40; // Approx based on CSS padding/line-height
+  const buffer = 5;
+
+  const onScroll = useCallback((e) => {
+    setScrollTop(e.target.scrollTop);
+  }, []);
+
+  // Sync scroll top if records change (optional, but good for resets)
+  useEffect(() => {
+    if (containerRef.current) containerRef.current.scrollTop = 0;
+    setScrollTop(0);
+  }, [records]);
+
+  const containerHeight = 560; // From CSS max-height
+  
+  const startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - buffer);
+  const endIndex   = Math.min(records.length, Math.floor((scrollTop + containerHeight) / rowHeight) + buffer);
+
+  const visibleRecords = records.slice(startIndex, endIndex);
+  
+  const topPadding    = startIndex * rowHeight;
+  const bottomPadding = (records.length - endIndex) * rowHeight;
+
+  return (
+    <div className="table-scroll" ref={containerRef} onScroll={onScroll}>
+      <table className="rt-table">
+        <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+          <tr>
+            {columns.map(col => (
+              <ResizableHeader key={col} col={col}
+                width={columnWidths[col] ?? DEFAULT_WIDTH}
+                onSort={handleSort} sortField={sort.field} sortDir={sort.dir}
+                onResize={handleResize} />
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {/* Top spacer */}
+          {topPadding > 0 && <tr className="rt-row-spacer" style={{ height: topPadding }}><td colSpan={columns.length} /></tr>}
+          
+          {visibleRecords.map((row, i) => {
+            const actualIndex = startIndex + i;
+            return (
+              <tr key={row.id ?? actualIndex} className="rt-row">
+                {columns.map(col => (
+                  <td key={col} className="rt-td" style={{ maxWidth: columnWidths[col] ?? DEFAULT_WIDTH }}>
+                    {formatCell(row[col])}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+
+          {/* Bottom spacer */}
+          {bottomPadding > 0 && <tr className="rt-row-spacer" style={{ height: bottomPadding }}><td colSpan={columns.length} /></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── Main ReportTable ──────────────────────────────────────────
 export default function ReportTable({ externalFilters, extraParams = {} } = {}) {
   const [filters,        setFilters]        = useState(externalFilters ?? {});
@@ -392,6 +503,7 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
   const [visibleColumns, setVisibleColumnsState] = useState(loadVisibleCols);
   const [columnWidths,   setColumnWidths]   = useState(loadWidths);
   const [showSavedViews, setShowSavedViews] = useState(false);
+  // showFilters lifted to App.jsx
 
   const setVisibleColumns = useCallback((cols) => {
     setVisibleColumnsState(cols);
@@ -431,6 +543,7 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
   };
 
   const hasActive = Object.keys(activeFilters).filter(k => k !== 'sort').length > 0;
+  // activeFilterCount moved to App.jsx
 
   // ── Sync with Backend ──────────────────────────────────────
   // 1. Initial Load
@@ -499,15 +612,7 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
   };
 
   return (
-    <div>
-      {/* ── Horizontal Filter Bar ──────────────────────────────── */}
-      <HorizontalFilters
-        columns={allColumns}
-        filters={filters}
-        onChange={(f) => { setFilters(f); setPage(1); }}
-        onReset={handleResetAll}
-      />
-
+    <div className="report-table-root">
       {/* ── Table Card ─────────────────────────────────────────── */}
       <div className="report-table-container">
 
@@ -516,10 +621,16 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
           <div className="toolbar-left">
             <h2 className="table-title">Reports</h2>
             {total > 0 && <span className="total-badge">{total.toLocaleString()} records</span>}
-            {hasActive  && <span className="filtered-badge">⊟ Filtered</span>}
+            {hasActive  && (
+              <span className="filtered-badge">
+                ⊟ Filtered
+              </span>
+            )}
           </div>
 
           <div className="toolbar-right">
+            {/* Filters toggle moved to App.jsx topbar */}
+
             {/* Export button */}
             <button className="btn btn-outline" onClick={handleExport} title="Download current view as CSV">
               📥 Export CSV
@@ -603,31 +714,15 @@ export default function ReportTable({ externalFilters, extraParams = {} } = {}) 
 
         {/* Table */}
         {!loading && records.length > 0 && (
-          <div className="table-scroll">
-            <table className="rt-table">
-              <thead>
-                <tr>
-                  {columns.map(col => (
-                    <ResizableHeader key={col} col={col}
-                      width={columnWidths[col] ?? DEFAULT_WIDTH}
-                      onSort={handleSort} sortField={sort.field} sortDir={sort.dir}
-                      onResize={handleResize} />
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {records.map((row, i) => (
-                  <tr key={row.id ?? i} className="rt-row">
-                    {columns.map(col => (
-                      <td key={col} className="rt-td" style={{ maxWidth: columnWidths[col] ?? DEFAULT_WIDTH }}>
-                        {formatCell(row[col])}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <VirtualTable 
+            records={records} 
+            columns={columns} 
+            columnWidths={columnWidths} 
+            DEFAULT_WIDTH={DEFAULT_WIDTH}
+            handleSort={handleSort}
+            sort={sort}
+            handleResize={handleResize}
+          />
         )}
 
         {/* Pagination */}
