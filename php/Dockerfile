@@ -5,8 +5,9 @@ RUN a2enmod rewrite
 
 # System deps + rdkafka extension
 RUN apt-get update && apt-get install -y \
-    librdkafka-dev curl zip unzip git \
+    librdkafka-dev libpq-dev curl zip unzip git \
     && pecl install rdkafka \
+    && docker-php-ext-install pdo_pgsql pgsql \
     && docker-php-ext-enable rdkafka \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 

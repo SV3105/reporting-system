@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import ReportTable, { HorizontalFilters } from './components/ReportTable';
 import ChartRenderer  from './components/ChartRenderer';
 import DateComparison from './components/DateComparison';
+import Login          from './components/Login';
 import { api }        from './services/api';
 import './App.css';
 
@@ -50,11 +51,19 @@ export default function App() {
   const [globalExternalFilters, setGlobalExternalFilters] = useState({});
   const [reportFilters, setReportFilters] = useState({});
   const [showFilters,    setShowFilters]    = useState(false);
+  const [user,           setUser]           = useState(null);
+  const [authChecking,   setAuthChecking]   = useState(true);
 
   // resetKey forces ReportTable to fully remount (clears all internal filters/sort/columns)
   const [resetKey, setResetKey] = useState(0);
 
   useEffect(() => {
+    // Check initial session
+    api.me()
+      .then(res => { if (res.success) setUser(res.user); })
+      .catch(() => setUser(null))
+      .finally(() => setAuthChecking(false));
+
     api.healthCheck().then(() => setSolrStatus('ok')).catch(() => setSolrStatus('error'));
     api.getFields().then(d => {
       const fields = d.fields ?? [];
@@ -91,11 +100,37 @@ export default function App() {
   const hasAnyFilter = !!dateFilters || Object.keys(globalExternalFilters).length > 0;
 
   const activeDateParams = dateFilters
-    ? { date_field: dateFilters.date_field, start_date: dateFilters.start_date, end_date: dateFilters.end_date }
+    ? { 
+        date_field: dateFilters.date_field, 
+        start_date: dateFilters.start_date, 
+        end_date: dateFilters.end_date,
+        relative_range: dateFilters.relative_range
+      }
     : {};
 
   const fieldFilterCount = Object.keys(reportFilters).filter(k => k !== 'sort' && k !== 'page' && k !== 'limit').length;
   const activeFilterCount = fieldFilterCount + (dateFilters ? 1 : 0);
+
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+      setUser(null);
+    } catch (e) {
+      console.error('Logout failed', e);
+    }
+  };
+
+  if (authChecking) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: '#94a3b8' }}>
+        <div className="chart-spinner" style={{ width: 40, height: 40, border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#6366f1' }} />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login onLoginSuccess={setUser} />;
+  }
 
   return (
     <div className="app-shell">
@@ -154,6 +189,17 @@ export default function App() {
           </div>
 
           <div className="topbar-right">
+            <div className="user-meta" style={{ display: 'flex', alignItems: 'center', gap: 12, marginRight: 16 }}>
+              <div className="user-avatar" style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(45deg, #6366f1, #a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>
+                {user.username[0].toUpperCase()}
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{user.username}</span>
+              <button className="btn btn-icon btn-sm" onClick={handleLogout} title="Sign Out" style={{ color: 'var(--text-muted)' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+              </button>
+            </div>
             <span className="topbar-meta">
               {new Date().toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' })}
             </span>
@@ -169,6 +215,7 @@ export default function App() {
               externalFilters={{...globalExternalFilters, ...reportFilters}} 
               extraParams={activeDateParams}
               onFiltersChange={setReportFilters}
+              onDateChange={setDateFilters}
               showFilterDropdown={showFilters}
               onCloseFilters={() => setShowFilters(false)}
               filterControl={

@@ -9,81 +9,39 @@ namespace App\Models;
  */
 class UserConfigModel
 {
-    private string $storagePath;
+    private \PDO $db;
 
     public function __construct()
     {
-        $this->storagePath = BASE_PATH . '/storage/user_config.json';
-        $this->ensureStorageExists();
-    }
-
-    private function ensureStorageExists(): void
-    {
-        $dir = dirname($this->storagePath);
-        if (!is_dir($dir)) mkdir($dir, 0755, true);
-        if (!file_exists($this->storagePath)) {
-            file_put_contents($this->storagePath, json_encode([], JSON_PRETTY_PRINT));
-        }
-    }
-
-    private function readAll(): array
-    {
-        $content = file_get_contents($this->storagePath);
-        return json_decode($content, true) ?: [];
-    }
-
-    private function writeAll(array $configs): void
-    {
-        file_put_contents($this->storagePath, json_encode($configs, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        $this->db = \App\Core\Database::getInstance();
     }
 
     public function get(int $userId, string $reportId): ?array
     {
-        $configs = $this->readAll();
-        foreach ($configs as $config) {
-            if ($config['user_id'] === $userId && $config['report_id'] === $reportId) {
-                return $config;
-            }
-        }
-        return null;
+        $stmt = $this->db->prepare("SELECT * FROM user_configs WHERE user_id = ? AND report_id = ?");
+        $stmt->execute([$userId, $reportId]);
+        $row = $stmt->fetch();
+        if (!$row) return null;
+
+        $row['column_config'] = json_decode($row['column_config'], true);
+        return $row;
     }
 
     public function save(array $payload): array
     {
-        $configs = $this->readAll();
-        $userId  = $payload['user_id'] ?? 1;
+        $userId   = $payload['user_id'] ?? 1;
         $reportId = $payload['report_id'] ?? 'default';
+        $config   = $payload['column_config'] ?? [];
 
-        $found = false;
-        foreach ($configs as &$c) {
-            if ($c['user_id'] === $userId && $c['report_id'] === $reportId) {
-                $c['column_config'] = $payload['column_config'] ?? (object)[];
-                if (isset($c['column_config']['widths']) && empty($c['column_config']['widths'])) {
-                    $c['column_config']['widths'] = (object)[];
-                }
-                $c['updated_at']    = date('Y-m-d\TH:i:s\Z');
-                $found = true;
-                $config = $c;
-                break;
-            }
-        }
+        $stmt = $this->db->prepare("
+            INSERT INTO user_configs (user_id, report_id, column_config, updated_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT (user_id, report_id) DO UPDATE SET
+                column_config = EXCLUDED.column_config,
+                updated_at    = CURRENT_TIMESTAMP
+        ");
+        $stmt->execute([$userId, $reportId, json_encode($config)]);
 
-        if (!$found) {
-            $columnConfig = $payload['column_config'] ?? (object)[];
-            if (isset($columnConfig['widths']) && empty($columnConfig['widths'])) {
-                $columnConfig['widths'] = (object)[];
-            }
-            $config = [
-                'user_id'       => $userId,
-                'report_id'     => $reportId,
-                'column_config' => $columnConfig,
-                'created_at'    => date('Y-m-d\TH:i:s\Z'),
-                'updated_at'    => date('Y-m-d\TH:i:s\Z'),
-            ];
-            $configs[] = $config;
-        }
-
-        $this->writeAll($configs);
-        return $config;
+        return $this->get($userId, $reportId);
     }
 }

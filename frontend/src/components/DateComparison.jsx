@@ -49,17 +49,28 @@ function DatePanel({ allFields, onDateChange, onClose }) {
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState(null);
   const [result,    setResult]    = useState(null);
+  const [relativeRange, setRelativeRange] = useState('');
 
   const presets = [
-    { label: 'Last 7d',   days: 7  },
-    { label: 'Last 30d',  days: 30 },
-    { label: 'Last 90d',  days: 90 },
-    { label: 'This year', year: true },
+    { label: 'Last 7d',   days: 7,  key: 'last_7d'    },
+    { label: 'Last 30d',  days: 30, key: 'last_30d'   },
+    { label: 'Last 90d',  days: 90, key: 'last_90d'   },
+    { label: 'Last Month',          key: 'last_month' },
+    { label: 'This year', year: true, key: 'this_year'  },
   ];
 
-  const applyPreset = ({ days, year }) => {
+  const applyPreset = (p) => {
+    setRelativeRange(p.key);
     const end = new Date();
-    const start = year ? new Date(end.getFullYear(), 0, 1) : new Date(Date.now() - days * 864e5);
+    let start;
+    if (p.key === 'last_month') {
+       start = new Date(end.getFullYear(), end.getMonth() - 1, 1);
+       const lastDay = new Date(end.getFullYear(), end.getMonth(), 0);
+       setStartDate(start.toISOString().slice(0, 10));
+       setEndDate(lastDay.toISOString().slice(0, 10));
+       return;
+    }
+    start = p.year ? new Date(end.getFullYear(), 0, 1) : new Date(Date.now() - p.days * 864e5);
     setStartDate(start.toISOString().slice(0, 10));
     setEndDate(end.toISOString().slice(0, 10));
   };
@@ -84,6 +95,7 @@ function DatePanel({ allFields, onDateChange, onClose }) {
           end_date:    endDate,
           compare:     'true',
           compare_type: compareType,
+          relative_range: relativeRange,
         });
         const res  = await fetch(`${BASE_URL}/api/reports/daterange?${params}`, {
           headers: { Accept: 'application/json' },
@@ -95,7 +107,7 @@ function DatePanel({ allFields, onDateChange, onClose }) {
         setResult(null);
       }
       setApplied(true);
-      onDateChange?.({ date_field: dateField, start_date: startDate, end_date: endDate, compare });
+      onDateChange?.({ date_field: dateField, start_date: startDate, end_date: endDate, relative_range: relativeRange, compare });
       // Only auto-close when NOT comparing — keep panel open so user sees the stat cards
       if (!compare) onClose?.();
     } catch (err) {
@@ -139,12 +151,12 @@ function DatePanel({ allFields, onDateChange, onClose }) {
       <div className="dc-dates-row">
         <div className="fp-group" style={{ flex: 1 }}>
           <label className="fp-label">Start</label>
-          <input type="date" className="fp-input fp-input--sm dc-date-input" value={startDate} max={endDate} onChange={e => setStartDate(e.target.value)} />
+          <input type="date" className="fp-input fp-input--sm dc-date-input" value={startDate} max={endDate} onChange={e => { setStartDate(e.target.value); setRelativeRange(''); }} />
         </div>
         <span style={{ color: 'var(--text-muted)', alignSelf: 'flex-end', paddingBottom: 8 }}>→</span>
         <div className="fp-group" style={{ flex: 1 }}>
           <label className="fp-label">End</label>
-          <input type="date" className="fp-input fp-input--sm dc-date-input" value={endDate} min={startDate} max={today} onChange={e => setEndDate(e.target.value)} />
+          <input type="date" className="fp-input fp-input--sm dc-date-input" value={endDate} min={startDate} max={today} onChange={e => { setEndDate(e.target.value); setRelativeRange(''); }} />
         </div>
       </div>
 

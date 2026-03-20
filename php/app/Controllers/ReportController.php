@@ -81,6 +81,12 @@ class ReportController
 
             foreach (Request::all() as $key => $value) {
                 if (!str_starts_with($key, 'filter_')) continue;
+                
+                if ($key === 'filter_logic') {
+                    $filters['_logic'] = json_decode($value, true);
+                    continue;
+                }
+
                 $field = substr($key, 7);
                 if (str_contains($value, ',') && !str_ends_with($field, '_s')) {
                     [$fMin, $fMax] = explode(',', $value, 2);
@@ -92,11 +98,13 @@ class ReportController
                 }
             }
 
+            $relativeRange = trim(Request::query('relative_range', ''));
+
             $data = $this->model->search(
                 $filters, $page, $limit, $sort, $returnFields,
                 $searchField, $searchTerm,
                 $facetFields, $facetLimit,
-                $dateField, $startDate, $endDate
+                $dateField, $startDate, $endDate, $relativeRange
             );
 
             $totalPages = ($limit > 0 && $data['limit'] > 0)
@@ -150,12 +158,15 @@ class ReportController
             $endDate     = trim(Request::query('end_date',   ''));
             $compare     = filter_var(Request::query('compare', 'false'), FILTER_VALIDATE_BOOLEAN);
             $compareType = trim(Request::query('compare_type', 'previous')); // 'previous' or 'year'
+            $relativeRange = trim(Request::query('relative_range', ''));
 
             // Validate required params
             $missing = [];
             if (!$dateField) $missing[] = 'date_field';
-            if (!$startDate) $missing[] = 'start_date';
-            if (!$endDate)   $missing[] = 'end_date';
+            if (!$relativeRange && (!$startDate || !$endDate)) {
+                if (!$startDate) $missing[] = 'start_date';
+                if (!$endDate)   $missing[] = 'end_date';
+            }
 
             if (!empty($missing)) {
                 Response::json([
@@ -166,15 +177,12 @@ class ReportController
                 return;
             }
 
-            // Validate date format
-            foreach (['start_date' => $startDate, 'end_date' => $endDate] as $param => $value) {
-                if (!\DateTime::createFromFormat('Y-m-d', $value)) {
-                    Response::json([
-                        'success' => false,
-                        'error'   => "Invalid date format for {$param}: '{$value}'. Use YYYY-MM-DD.",
-                    ], 400);
-                    return;
-                }
+            // Validate date format if provided
+            if ($startDate && !\DateTime::createFromFormat('Y-m-d', $startDate)) {
+                 Response::json(['success' => false, 'error' => "Invalid format for start_date"], 400); return;
+            }
+            if ($endDate && !\DateTime::createFromFormat('Y-m-d', $endDate)) {
+                 Response::json(['success' => false, 'error' => "Invalid format for end_date"], 400); return;
             }
 
             // Extra fq filters (filter_* params)
@@ -186,7 +194,8 @@ class ReportController
             }
 
             $result = $this->model->dateRangeQuery(
-                $dateField, $startDate, $endDate, $compare, $compareType, $extraFq
+                $dateField, $startDate, $endDate,
+                $compare, $compareType, $extraFq, $relativeRange
             );
 
             Response::json(['success' => true, ...$result]);
@@ -237,12 +246,14 @@ class ReportController
                 }
             }
 
+            $relativeRange = trim(Request::query('relative_range', ''));
+
             // Fetch up to 10,000 records
             $data = $this->model->search(
                 $filters, 1, 10000, $sort, [],
                 $searchField, $searchTerm,
                 [], 50,
-                $dateField, $startDate, $endDate
+                $dateField, $startDate, $endDate, $relativeRange
             );
 
             $records = $data['records'] ?? [];

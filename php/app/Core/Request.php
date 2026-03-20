@@ -17,10 +17,11 @@ class Request
         return $body[$key] ?? $_POST[$key] ?? $default;
     }
 
-    /** All GET params */
+    /** All GET / POST / JSON params */
     public static function all(): array
     {
-        return $_GET;
+        $json = json_decode(file_get_contents('php://input'), true) ?: [];
+        return array_merge($_GET, $_POST, $json);
     }
 
     public static function method(): string

@@ -2,6 +2,11 @@
 
 use App\Core\Router;
 
+// ── Auth endpoints ──────────────────────────────────────────
+Router::post('/api/login',  'AuthController@login');
+Router::post('/api/logout', 'AuthController@logout');
+Router::get ('/api/me',     'AuthController@me');
+
 // ── Report endpoints ──────────────────────────────────────────
 Router::get('/api/reports',           'ReportController@index');
 Router::get('/api/reports/daterange', 'ReportController@daterange');

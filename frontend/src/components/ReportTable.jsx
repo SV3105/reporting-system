@@ -198,13 +198,13 @@ export function HorizontalFilters({ columns, filters, onChange, onReset }) {
   const [rows, setRows] = useState(() => {
     const initial = [];
     if (filters.column) {
-      initial.push({ id: 1, column: filters.column, search: filters.search || '', min: filters.min || '', max: filters.max || '' });
+      initial.push({ id: 1, column: filters.column, search: filters.search || '', min: filters.min || '', max: filters.max || '', logic: 'AND' });
     }
     Object.keys(filters).forEach((k, i) => {
       if (k.startsWith('filter_')) {
         const col = k.replace('filter_', '');
         const val = filters[k];
-        const row = { id: 100 + i, column: col, search: '', min: '', max: '' };
+        const row = { id: 100 + i, column: col, search: '', min: '', max: '', logic: 'AND' };
         if (typeof val === 'string' && val.includes(',')) {
           const parts = val.split(',');
           row.min = parts[0] === '*' ? '' : parts[0];
@@ -220,7 +220,15 @@ export function HorizontalFilters({ columns, filters, onChange, onReset }) {
         initial.push(row);
       }
     });
-    if (initial.length === 0) initial.push({ id: Date.now(), column: '', search: '', min: '', max: '' });
+
+    if (filters.filter_logic) {
+      try {
+        const parsed = JSON.parse(filters.filter_logic);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch(e) {}
+    }
+
+    if (initial.length === 0) initial.push({ id: Date.now(), column: '', search: '', min: '', max: '', logic: 'AND' });
     return initial;
   });
 
@@ -247,43 +255,29 @@ export function HorizontalFilters({ columns, filters, onChange, onReset }) {
     }
   };
 
-  // Pre-load facets for initial string rows
-  const debouncedRows = useDebounce(rows, 400);
-  const skipFirst = useRef(true);
+  // Auto-filtering removed; user must manually click Apply.
 
-  useEffect(() => {
-    if (skipFirst.current) {
-      skipFirst.current = false;
-      return;
-    }
-    apply();
-  }, [debouncedRows]); // eslint-disable-line
-
-  const addRow = () => setRows(prev => [...prev, { id: Date.now(), column: '', search: '', min: '', max: '' }]);
+  const addRow = (logic = 'AND') => setRows(prev => [...prev, { id: Date.now(), column: '', search: '', min: '', max: '', logic }]);
   const removeRow = (id) => setRows(prev => prev.filter(r => r.id !== id));
   const updateRow = (id, fields) => setRows(prev => prev.map(r => r.id === id ? { ...r, ...fields } : r));
 
   const apply = () => {
-    const f = {};
     const valid = rows.filter(r => r.column && (r.search || r.min || r.max));
-    valid.forEach(r => {
-      if (r.search) {
-        if (f[`filter_${r.column}`]) f[`filter_${r.column}`] += `|*${r.search}*`;
-        else f[`filter_${r.column}`] = `*${r.search}*`;
-      } else {
-        f[`filter_${r.column}`] = `${r.min || '*'},${r.max || '*'}`;
-      }
-    });
-    onChange(f);
+    if (valid.length === 0) {
+      onChange({});
+      return;
+    }
+    // Send as structured logic
+    onChange({ filter_logic: JSON.stringify(valid) });
   };
 
   const reset = () => {
-    setRows([{ id: Date.now(), column: '', search: '', min: '', max: '' }]);
+    setRows([{ id: Date.now(), column: '', search: '', min: '', max: '', logic: 'AND' }]);
     onChange({});
     onReset?.();
   };
 
-  const activeKeys = Object.keys(filters).filter(k => k === 'column' || k === 'search' || k === 'min' || k === 'max' || k.startsWith('filter_'));
+  const activeKeys = Object.keys(filters).filter(k => k === 'column' || k === 'search' || k === 'min' || k === 'max' || k.startsWith('filter_') || k === 'filter_logic');
   const hasFilter = activeKeys.length > 0;
 
   return (
@@ -296,8 +290,18 @@ export function HorizontalFilters({ columns, filters, onChange, onReset }) {
           
           return (
             <div key={row.id} className="hfilter-row" style={{ alignItems: 'center' }}>
-              <div style={{ width: 60, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.5 }}>
-                {i === 0 ? 'WHERE' : 'AND'}
+              <div style={{ width: 60 }}>
+                {i === 0 ? (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.5 }}>WHERE</span>
+                ) : (
+                  <button 
+                    className="btn btn-outline btn-sm" 
+                    style={{ fontSize: 10, padding: '2px 6px', height: 22, minWidth: 42, borderColor: row.logic === 'OR' ? 'var(--warning)' : 'var(--primary-mid)' }}
+                    onClick={() => updateRow(row.id, { logic: row.logic === 'AND' ? 'OR' : 'AND' })}
+                  >
+                    {row.logic}
+                  </button>
+                )}
               </div>
 
               {/* Column picker */}
@@ -388,20 +392,19 @@ export function HorizontalFilters({ columns, filters, onChange, onReset }) {
                   <button className="btn btn-ghost btn-sm" onClick={() => removeRow(row.id)} title="Remove row">✕</button>
                 )}
                 {i === rows.length - 1 && (
-                  <button className="btn btn-outline btn-sm" onClick={addRow} title="Add another condition">＋ AND</button>
+                  <>
+                    <button className="btn btn-outline btn-sm" onClick={() => addRow('AND')} title="Add AND condition">＋ AND</button>
+                    <button className="btn btn-outline btn-sm" onClick={() => addRow('OR')} title="Add OR condition" style={{ borderColor: 'var(--warning)', color: 'var(--warning)', marginLeft: 6 }}>＋ OR</button>
+                  </>
                 )}
               </div>
             </div>
           );
         })}
       </div>
-
-      <div className="hfilter-submit" style={{ marginTop: 16, display: 'flex', gap: 10, paddingLeft: 60, alignItems: 'center' }}>
-        <button className="btn btn-primary btn-sm" onClick={apply}>Apply Now</button>
+      <div className="hfilter-submit" style={{ marginTop: 12, display: 'flex', gap: 10, paddingLeft: 60 }}>
+        <button className="btn btn-primary btn-sm" onClick={apply}>Apply Filters</button>
         {hasFilter && <button className="btn btn-ghost btn-sm" onClick={reset}>✕ Clear All</button>}
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-          Filters apply automatically after 400ms
-        </span>
       </div>
 
       {hasFilter && (
@@ -409,6 +412,17 @@ export function HorizontalFilters({ columns, filters, onChange, onReset }) {
           <span className="hfilter-active-label">Active:</span>
           {Object.entries(filters).map(([k, v]) => {
             if (k === 'sort' || k === 'page' || k === 'limit') return null;
+            if (k === 'filter_logic') {
+               try {
+                 const parsed = JSON.parse(v);
+                 return parsed.map((r, idx) => (
+                   <span key={idx} className="ifp-tag">
+                     {idx > 0 && <strong style={{ color: 'var(--text-muted)', marginRight: 4 }}>{r.logic}</strong>}
+                     {r.column}: {r.search || `${r.min||'*'} → ${r.max||'*'}`}
+                   </span>
+                 ));
+               } catch(e) { return null; }
+            }
             if (k === 'column' || k === 'search' || k === 'min' || k === 'max') {
               if (k !== 'column') return null; 
               return <span key={k} className="ifp-tag">{filters.column}: {filters.search || `${filters.min||'*'} → ${filters.max||'*'}`}</span>;
@@ -497,7 +511,7 @@ function VirtualTable({
 }
 
 // ── Main ReportTable ──────────────────────────────────────────
-export default function ReportTable({ externalFilters, extraParams = {}, filterControl, resetControl } = {}) {
+export default function ReportTable({ externalFilters, extraParams = {}, onFiltersChange, onDateChange, filterControl, resetControl } = {}) {
   const [filters,        setFilters]        = useState(externalFilters ?? {});
   const [sort,           setSort]           = useState({ field: '', dir: 'asc' });
   const [visibleColumns, setVisibleColumnsState] = useState(loadVisibleCols);
@@ -535,7 +549,27 @@ export default function ReportTable({ externalFilters, extraParams = {}, filterC
   };
 
   const handleLoadView = (view) => {
-    if (view.filters && Object.keys(view.filters).length) setFilters(view.filters);
+    if (view.filters) {
+      const dateParams = {};
+      const rest = {};
+      Object.entries(view.filters).forEach(([k, v]) => {
+        if (['date_field', 'start_date', 'end_date', 'relative_range'].includes(k)) {
+          dateParams[k] = v;
+        } else {
+          rest[k] = v;
+        }
+      });
+
+      if (Object.keys(dateParams).length > 0) {
+        onDateChange?.(dateParams);
+      } else {
+        onDateChange?.(null);
+      }
+
+      setFilters(rest);
+      onFiltersChange?.(rest);
+    }
+
     if (view.columns?.length) setVisibleColumns(view.columns);
     if (view.widths && !Array.isArray(view.widths)) setColumnWidths(view.widths);
     if (view.sorting?.field)  setSort({ field: view.sorting.field, dir: view.sorting.dir || 'asc' });
@@ -658,8 +692,8 @@ export default function ReportTable({ externalFilters, extraParams = {}, filterC
               </button>
               {showSavedViews && (
                 <div className="sv-dropdown">
-                  <SavedViews
-                    currentFilters={filters}
+                   <SavedViews
+                    currentFilters={activeFilters}
                     currentColumns={visibleColumns ?? allColumns}
                     currentWidths={columnWidths}
                     currentSorting={sort}

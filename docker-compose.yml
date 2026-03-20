@@ -160,12 +160,40 @@ services:
         condition: service_healthy
       solr:
         condition: service_started
+      db:
+        condition: service_healthy
     environment:
       KAFKA_BROKER: kafka:9092
       SOLR_URL: http://solr:8983/solr/csvcore
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: reporting_system
+      DB_USER: user
+      DB_PASS: password
 
   # ----------------------------------------------------------
-  # 7. REACT FRONTEND  (http://localhost:3000)
+  # 7. POSTGRESQL DATABASE
+  # ----------------------------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: reporting-db
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: reporting_system
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d reporting_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------
+  # 8. REACT FRONTEND  (http://localhost:3000)
   # ----------------------------------------------------------
   react-frontend:
     image: node:20-alpine
@@ -173,7 +201,7 @@ services:
     restart: unless-stopped
     working_dir: /app
     ports:
-      - "3000:3000"
+      - "5173:5173"
     volumes:
       - ./frontend:/app
     depends_on:
@@ -181,7 +209,7 @@ services:
     environment:
       VITE_API_URL: http://localhost:8000
       CHOKIDAR_USEPOLLING: "true"
-    command: sh -c "npm install -g npm@latest && npm install && npx vite --host 0.0.0.0 --port 3000 --strictPort"
+    command: sh -c "npm install -g npm@latest && npm install && npx vite --host 0.0.0.0 --port 5173 --strictPort"
 
 # ============================================================
 #  VOLUMES
@@ -191,6 +219,7 @@ volumes:
   zk_data:
   zk_log:
   solr_data:
+  pg_data:
 
 # ============================================================
 #  NETWORK

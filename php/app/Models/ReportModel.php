@@ -91,6 +91,10 @@ class ReportModel
     // ── Build fq string from filters array ────────────────────────
     private function buildFilterQuery(array $filters): string
     {
+        if (isset($filters['_logic']) && is_array($filters['_logic'])) {
+            return $this->buildAdvancedFilterQuery($filters['_logic']);
+        }
+
         $parts = [];
         foreach ($filters as $field => $value) {
             if ($value === '' || $value === null) continue;
@@ -118,6 +122,86 @@ class ReportModel
             }
         }
         return implode(' AND ', $parts);
+    }
+
+    private function buildAdvancedFilterQuery(array $rows): string
+    {
+        $query = '';
+        foreach ($rows as $row) {
+            $field = $row['column'] ?? '';
+            $logic = $row['logic'] ?? 'AND';
+            if ($field === '') continue;
+
+            $part = '';
+            if (!empty($row['min']) || !empty($row['max'])) {
+                $min = $row['min'] === '' ? '*' : $row['min'];
+                $max = $row['max'] === '' ? '*' : $row['max'];
+                $part = "{$field}:[{$min} TO {$max}]";
+            } elseif (!empty($row['search'])) {
+                $search = (string)$row['search'];
+                $subparts = explode('|', $search);
+                $escapedSubparts = array_map(function($sub) use ($field) {
+                    $s = str_replace(' ', '\ ', addslashes($sub));
+                    if (str_ends_with($field, '_b')) return $s; // Booleans don't need wildcards/quotes
+                    return "*{$s}*";
+                }, $subparts);
+                
+                if (count($escapedSubparts) > 1) {
+                    $part = "{$field}:(" . implode(' OR ', $escapedSubparts) . ")";
+                } else {
+                    $part = "{$field}:{$escapedSubparts[0]}";
+                }
+            }
+
+            if ($part === '') continue;
+
+            if ($query === '') {
+                $query = "({$part})";
+            } else {
+                $query = "({$query}) {$logic} ({$part})";
+            }
+        }
+        return $query;
+    }
+
+    /**
+     * Resolves a relative range string (e.g. 'last_7d') into concrete Y-m-d dates.
+     */
+    public function resolveRelativeRange(string $range): array
+    {
+        $end = new \DateTime();
+        $start = clone $end;
+
+        switch ($range) {
+            case 'last_7d':
+                $start->modify('-7 days');
+                break;
+            case 'last_30d':
+                $start->modify('-30 days');
+                break;
+            case 'last_90d':
+                $start->modify('-90 days');
+                break;
+            case 'last_month':
+                $start->modify('first day of last month');
+                $end->modify('last day of last month');
+                break;
+            case 'this_year':
+                $start->setDate((int)$end->format('Y'), 1, 1);
+                break;
+            case 'today':
+                // Already set to today
+                break;
+            case 'yesterday':
+                $start->modify('-1 day');
+                $end->modify('-1 day');
+                break;
+        }
+
+        return [
+            'start' => $start->format('Y-m-d'),
+            'end'   => $end->format('Y-m-d')
+        ];
     }
 
     // ── Parse Solr flat facet array ───────────────────────────────
@@ -182,8 +266,15 @@ class ReportModel
         string $endDate,
         bool   $compare     = false,
         string $compareType = 'previous',
-        array  $extraFq     = []
+        array  $extraFq     = [],
+        string $relativeRange = ''
     ): array {
+        if ($relativeRange !== '') {
+            $resolved  = $this->resolveRelativeRange($relativeRange);
+            $startDate = $resolved['start'];
+            $endDate   = $resolved['end'];
+        }
+
         $currentCount = $this->countInRange($dateField, $startDate, $endDate, $extraFq);
 
         $result = [
@@ -231,8 +322,15 @@ class ReportModel
         int    $facetLimit   = 50,
         string $dateField    = '',
         string $startDate    = '',
-        string $endDate      = ''
+        string $endDate      = '',
+        string $relativeRange = ''
     ): array {
+        if ($relativeRange !== '') {
+            $resolved  = $this->resolveRelativeRange($relativeRange);
+            $startDate = $resolved['start'];
+            $endDate   = $resolved['end'];
+        }
+
         $limit  = $limit === 0 ? 0 : min($limit, 10000);
         $offset = max(0, ($page - 1) * $limit);
 
