@@ -17,10 +17,17 @@ class ViewModel
     }
 
     // ── Get all views ─────────────────────────────────────────────
-    public function getAll(): array
+    public function getAll(int $userId, string $role): array
     {
-        $stmt = $this->db->query("SELECT * FROM views ORDER BY created_at DESC");
-        $rows = $stmt->fetchAll();
+        if ($role === 'admin') {
+            $stmt = $this->db->query("SELECT * FROM views ORDER BY created_at DESC");
+            $rows = $stmt->fetchAll();
+        } else {
+            $stmt = $this->db->prepare("SELECT * FROM views WHERE user_id = ? ORDER BY created_at DESC");
+            $stmt->execute([$userId]);
+            $rows = $stmt->fetchAll();
+        }
+
         foreach ($rows as &$row) {
             $row['filters'] = json_decode($row['filters'], true);
             $row['columns'] = json_decode($row['columns'], true);
@@ -30,8 +37,42 @@ class ViewModel
         return $rows;
     }
 
-    // ── Get view by ID ────────────────────────────────────────────
-    public function getById(string $id): ?array
+    // ── Get all views with creator username (admin only) ──────────
+    public function getAllWithUsers(): array
+    {
+        $stmt = $this->db->query("
+            SELECT v.id, v.name, v.user_id, v.created_at, v.updated_at,
+                   u.username AS created_by,
+                   v.filters, v.columns
+            FROM views v
+            LEFT JOIN users u ON u.id = v.user_id
+            ORDER BY v.created_at DESC
+        ");
+        $rows = $stmt->fetchAll();
+
+        foreach ($rows as &$row) {
+            $row['filters'] = json_decode($row['filters'], true);
+            $row['columns'] = json_decode($row['columns'], true);
+        }
+        return $rows;
+    }
+
+    // ── Get view by ID (Filtered by RBAC) ─────────────────────────
+    public function getByIdFiltered(string $id, int $userId, string $role): ?array
+    {
+        $view = $this->getById($id);
+        if (!$view) return null;
+
+        // RBAC: Check ownership unless Admin
+        if ($role !== 'admin' && (int)$view['user_id'] !== $userId) {
+            return null; // Forbidden
+        }
+
+        return $view;
+    }
+
+    // ── Internal helper: Get view by ID ───────────────────────────
+    private function getById(string $id): ?array
     {
         $stmt = $this->db->prepare("SELECT * FROM views WHERE id = ?");
         $stmt->execute([$id]);
@@ -46,15 +87,16 @@ class ViewModel
     }
 
     // ── Create new view ───────────────────────────────────────────
-    public function create(array $payload): array
+    public function create(array $payload, int $userId): array
     {
         $id = uniqid('view_', true);
         $stmt = $this->db->prepare("
-            INSERT INTO views (id, name, filters, columns, widths, sorting, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO views (id, user_id, name, filters, columns, widths, sorting, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ");
         $stmt->execute([
             $id,
+            $userId,
             $payload['name'],
             json_encode($payload['filters'] ?? []),
             json_encode($payload['columns'] ?? []),
@@ -66,8 +108,16 @@ class ViewModel
     }
 
     // ── Update existing view ──────────────────────────────────────
-    public function update(string $id, array $payload): ?array
+    public function update(string $id, array $payload, int $userId, string $role): ?array
     {
+        $view = $this->getById($id);
+        if (!$view) return null;
+
+        // RBAC: Check ownership unless Admin
+        if ($role !== 'admin' && (int)$view['user_id'] !== $userId) {
+            throw new \Exception("Unauthorized: You do not own this view.");
+        }
+
         $updates = [];
         $params  = [];
 
@@ -77,7 +127,7 @@ class ViewModel
         if (isset($payload['widths']))  { $updates[] = "widths = ?";  $params[] = json_encode($payload['widths']); }
         if (isset($payload['sorting'])) { $updates[] = "sorting = ?"; $params[] = json_encode($payload['sorting']); }
 
-        if (empty($updates)) return $this->getById($id);
+        if (empty($updates)) return $view;
 
         $updates[] = "updated_at = CURRENT_TIMESTAMP";
         $params[]  = $id;
@@ -90,8 +140,16 @@ class ViewModel
     }
 
     // ── Delete view ───────────────────────────────────────────────
-    public function delete(string $id): bool
+    public function delete(string $id, int $userId, string $role): bool
     {
+        $view = $this->getById($id);
+        if (!$view) return false;
+
+        // RBAC: Check ownership unless Admin
+        if ($role !== 'admin' && (int)$view['user_id'] !== $userId) {
+            throw new \Exception("Unauthorized: You do not own this view.");
+        }
+
         $stmt = $this->db->prepare("DELETE FROM views WHERE id = ?");
         $stmt->execute([$id]);
         return $stmt->rowCount() > 0;

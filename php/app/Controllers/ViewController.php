@@ -36,7 +36,35 @@ class ViewController
     public function index(): void
     {
         try {
-            $views = $this->model->getAll();
+            $userId = (int)($_SESSION['user_id'] ?? 0);
+            $role   = $_SESSION['role'] ?? 'user';
+
+            if (!$userId) {
+                Response::json(['success' => false, 'error' => 'Not authenticated'], 401);
+                return;
+            }
+
+            $views = $this->model->getAll($userId, $role);
+            Response::json([
+                'success' => true,
+                'total'   => count($views),
+                'views'   => $views,
+            ]);
+        } catch (\Throwable $e) {
+            Response::json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    // ── GET /api/admin/views ── Admin: all views with creator info ─
+    public function adminIndex(): void
+    {
+        try {
+            if (($_SESSION['role'] ?? '') !== 'admin') {
+                Response::json(['success' => false, 'error' => 'Forbidden: Admin access required'], 403);
+                return;
+            }
+
+            $views = $this->model->getAllWithUsers();
             Response::json([
                 'success' => true,
                 'total'   => count($views),
@@ -59,7 +87,8 @@ class ViewController
                 return;
             }
 
-            $view = $this->model->create($payload);
+            $userId = $_SESSION['user_id'] ?? 0;
+            $view = $this->model->create($payload, $userId);
 
             Response::json([
                 'success' => true,
@@ -76,8 +105,16 @@ class ViewController
     public function show(): void
     {
         try {
-            $id   = $this->extractId();
-            $view = $this->model->getById($id);
+            $id     = $this->extractId();
+            $userId = (int)($_SESSION['user_id'] ?? 0);
+            $role   = $_SESSION['role'] ?? 'user';
+
+            if (!$userId) {
+                Response::json(['success' => false, 'error' => 'Not authenticated'], 401);
+                return;
+            }
+
+            $view = $this->model->getByIdFiltered($id, $userId, $role);
 
             if (!$view) {
                 Response::json(['success' => false, 'error' => "View '{$id}' not found."], 404);
@@ -104,7 +141,10 @@ class ViewController
                 return;
             }
 
-            $view = $this->model->update($id, $payload);
+            $userId = $_SESSION['user_id'] ?? 0;
+            $role   = $_SESSION['role'] ?? 'user';
+
+            $view = $this->model->update($id, $payload, $userId, $role);
 
             if (!$view) {
                 Response::json(['success' => false, 'error' => "View '{$id}' not found."], 404);
@@ -127,7 +167,10 @@ class ViewController
     {
         try {
             $id      = $this->extractId();
-            $deleted = $this->model->delete($id);
+            $userId  = $_SESSION['user_id'] ?? 0;
+            $role    = $_SESSION['role'] ?? 'user';
+
+            $deleted = $this->model->delete($id, $userId, $role);
 
             if (!$deleted) {
                 Response::json(['success' => false, 'error' => "View '{$id}' not found."], 404);

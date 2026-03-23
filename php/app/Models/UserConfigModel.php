@@ -27,12 +27,8 @@ class UserConfigModel
         return $row;
     }
 
-    public function save(array $payload): array
+    public function save(int $userId, string $reportId, array $config): array
     {
-        $userId   = $payload['user_id'] ?? 1;
-        $reportId = $payload['report_id'] ?? 'default';
-        $config   = $payload['column_config'] ?? [];
-
         $stmt = $this->db->prepare("
             INSERT INTO user_configs (user_id, report_id, column_config, updated_at)
             VALUES (?, ?, ?, CURRENT_TIMESTAMP)

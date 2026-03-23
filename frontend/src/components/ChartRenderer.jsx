@@ -135,8 +135,9 @@ export default function ChartRenderer({ facetField, yAxisFunc = 'count', yAxisFi
         }
 
         const res  = await fetch(`${BASE_URL}/api/reports?${params}`, {
-          signal:  controller.signal,
-          headers: { Accept: 'application/json' },
+          signal:      controller.signal,
+          credentials: 'include',
+          headers:     { Accept: 'application/json' },
         });
         const json = await res.json();
 

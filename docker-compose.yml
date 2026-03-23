@@ -163,6 +163,7 @@ services:
       db:
         condition: service_healthy
     environment:
+      TZ: Asia/Kolkata
       KAFKA_BROKER: kafka:9092
       SOLR_URL: http://solr:8983/solr/csvcore
       DB_HOST: db
@@ -170,6 +171,8 @@ services:
       DB_NAME: reporting_system
       DB_USER: user
       DB_PASS: password
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
 
   # ----------------------------------------------------------
   # 7. POSTGRESQL DATABASE
@@ -181,6 +184,7 @@ services:
     ports:
       - "5433:5432"
     environment:
+      TZ: Asia/Kolkata
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: reporting_system
@@ -210,6 +214,17 @@ services:
       VITE_API_URL: http://localhost:8000
       CHOKIDAR_USEPOLLING: "true"
     command: sh -c "npm install -g npm@latest && npm install && npx vite --host 0.0.0.0 --port 5173 --strictPort"
+
+  # ----------------------------------------------------------
+  # 9. MAILHOG (Email Testing)
+  # ----------------------------------------------------------
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
 
 # ============================================================
 #  VOLUMES

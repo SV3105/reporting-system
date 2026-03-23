@@ -1,3 +1,4 @@
+// src/components/Login.jsx — High-End Sky Blue Login
 import { useState } from 'react';
 import { api } from '../services/api';
 
@@ -22,33 +23,47 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-glass">
-        <div className="login-header">
-          <div className="login-logo">◈</div>
-          <h1>Report<span>System</span></h1>
-          <p>Advanced Analytics Platform</p>
+    <div style={{ 
+      height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+      background: 'var(--bg-canvas)', fontFamily: 'Inter, system-ui, sans-serif' 
+    }}>
+      <div style={{ 
+        width: '100%', maxWidth: '420px', padding: '48px', background: 'var(--bg-surface)', 
+        borderRadius: '32px', boxShadow: '0 20px 60px -10px rgba(15, 38, 68, 0.1)',
+        border: '1px solid var(--border-light)'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <div style={{ 
+            width: '64px', height: '64px', background: 'var(--primary)', borderRadius: '16px', 
+            margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '32px', color: 'white', boxShadow: 'var(--primary-glow)'
+          }}>◈</div>
+          <h1 style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 8px', letterSpacing: '-1px' }}>
+            Welcome Back
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 500 }}>
+            Secure access to ReportSystem analytics
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="fp-group">
-            <label className="fp-label">Username</label>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Username</label>
             <input
               type="text"
-              className="fp-input"
+              style={{ width: '100%', padding: '14px 18px', borderRadius: '12px', border: '2px solid var(--border-light)', outline: 'none', background: 'var(--bg-surface-2)', fontSize: '15px', transition: 'all 0.2s' }}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              placeholder="e.g. admin_pro"
               required
-              autoFocus
             />
           </div>
 
-          <div className="fp-group">
-            <label className="fp-label">Password</label>
+          <div style={{ marginBottom: '28px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Password</label>
             <input
               type="password"
-              className="fp-input"
+              style={{ width: '100%', padding: '14px 18px', borderRadius: '12px', border: '2px solid var(--border-light)', outline: 'none', background: 'var(--bg-surface-2)', fontSize: '15px' }}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -56,117 +71,29 @@ export default function Login({ onLoginSuccess }) {
             />
           </div>
 
-          {error && <div className="login-error">⚠ {error}</div>}
+          {error && (
+            <div style={{ padding: '12px', background: '#fee2e2', color: '#dc2626', borderRadius: '10px', fontSize: '13px', fontWeight: 600, marginBottom: '20px', border: '1px solid #fecaca' }}>
+              ⚠ {error}
+            </div>
+          )}
 
-          <button type="submit" className="btn btn-primary btn-wide" disabled={loading}>
-            {loading ? 'Authenticating...' : 'Sign In'}
+          <button 
+            type="submit" 
+            disabled={loading}
+            style={{ 
+              width: '100%', padding: '16px', background: 'var(--primary)', color: 'white', 
+              border: 'none', borderRadius: '12px', fontWeight: 700, fontSize: '16px', cursor: 'pointer',
+              boxShadow: 'var(--primary-glow)', transition: 'transform 0.2s'
+            }}
+          >
+            {loading ? 'Authenticating...' : 'Sign In to Dashboard'}
           </button>
         </form>
 
-        <div className="login-footer">
-          © 2026 Antigravity Systems. All rights reserved.
-        </div>
+        <p style={{ textAlign: 'center', marginTop: '32px', fontSize: '12px', color: 'var(--text-placeholder)' }}>
+          © 2026 Antigravity Systems. Enterprise Grade Security.
+        </p>
       </div>
-
-      <style>{`
-        .login-container {
-          height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: radial-gradient(circle at top left, #1e293b, #0f172a);
-          color: #f8fafc;
-          font-family: 'Inter', system-ui, sans-serif;
-        }
-
-        .login-glass {
-          width: 100%;
-          max-width: 400px;
-          padding: 40px;
-          background: rgba(30, 41, 59, 0.7);
-          backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 24px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-          animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .login-header {
-          text-align: center;
-          margin-bottom: 32px;
-        }
-
-        .login-logo {
-          font-size: 40px;
-          margin-bottom: 12px;
-          color: #6366f1;
-          filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
-        }
-
-        .login-header h1 {
-          font-size: 28px;
-          font-weight: 800;
-          margin: 0;
-          letter-spacing: -0.025em;
-        }
-
-        .login-header h1 span {
-          color: #6366f1;
-        }
-
-        .login-header p {
-          color: #94a3b8;
-          font-size: 14px;
-          margin: 8px 0 0;
-        }
-
-        .login-form .fp-group {
-          margin-bottom: 20px;
-        }
-
-        .login-form .fp-label {
-          color: #cbd5e1;
-          margin-bottom: 8px;
-          font-weight: 500;
-        }
-
-        .login-form .fp-input {
-          background: rgba(15, 23, 42, 0.6);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          color: white;
-          padding: 12px 16px;
-          font-size: 15px;
-          transition: all 0.2s;
-        }
-
-        .login-form .fp-input:focus {
-          border-color: #6366f1;
-          background: rgba(15, 23, 42, 0.8);
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-        }
-
-        .login-error {
-          background: rgba(239, 68, 68, 0.1);
-          border-left: 3px solid #ef4444;
-          color: #fca5a5;
-          padding: 12px;
-          font-size: 13px;
-          margin-bottom: 20px;
-          border-radius: 4px;
-        }
-
-        .login-footer {
-          margin-top: 32px;
-          text-align: center;
-          font-size: 12px;
-          color: #64748b;
-        }
-      `}</style>
     </div>
   );
 }

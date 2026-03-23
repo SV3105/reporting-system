@@ -13,6 +13,12 @@ class UserModel
         $this->db = Database::getInstance();
     }
 
+    public function getAll(): array
+    {
+        $stmt = $this->db->query("SELECT id, username, email, role, created_at FROM users ORDER BY id ASC");
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
     public function findByUsername(string $username): ?array
     {
         $stmt = $this->db->prepare("SELECT * FROM users WHERE username = ?");
@@ -29,11 +35,18 @@ class UserModel
         return $user ?: null;
     }
 
-    public function create(string $username, string $password, string $email = null): int
+    public function create(string $username, string $password, string $email = null, string $role = 'user'): int
     {
         $hashed = password_hash($password, PASSWORD_BCRYPT);
-        $stmt = $this->db->prepare("INSERT INTO users (username, password, email) VALUES (?, ?, ?)");
-        $stmt->execute([$username, $hashed, $email]);
+        $stmt = $this->db->prepare("INSERT INTO users (username, password, email, role) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$username, $hashed, $email, $role]);
         return (int)$this->db->lastInsertId();
+    }
+
+    public function delete(int $id): bool
+    {
+        $stmt = $this->db->prepare("DELETE FROM users WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->rowCount() > 0;
     }
 }

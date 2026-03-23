@@ -17,6 +17,7 @@ class Schema
         $this->db->exec("
             CREATE TABLE IF NOT EXISTS views (
                 id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL DEFAULT 1,
                 name TEXT NOT NULL,
                 filters JSONB NOT NULL DEFAULT '{}',
                 columns JSONB NOT NULL DEFAULT '[]',
@@ -25,6 +26,16 @@ class Schema
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
+        ");
+
+        // Ensure user_id column exists for views (for existing installations)
+        $this->db->exec("
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='views' AND column_name='user_id') THEN
+                    ALTER TABLE views ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1;
+                END IF;
+            END $$;
         ");
 
         // 2. Create User Configs Table
@@ -51,6 +62,19 @@ class Schema
             )
         ");
 
+        // 4. Create Scheduled Reports Table
+        $this->db->exec("
+            CREATE TABLE IF NOT EXISTS scheduled_reports (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                view_id TEXT NOT NULL REFERENCES views(id) ON DELETE CASCADE,
+                schedule_time TIME NOT NULL DEFAULT '09:00:00',
+                last_sent_at TIMESTAMP WITH TIME ZONE,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+
         // Seed default admin user if not exists
         $adminPass = password_hash('admin123', PASSWORD_BCRYPT);
         $this->db->exec("
@@ -71,13 +95,14 @@ class Schema
         if (file_exists($viewsFile)) {
             $views = json_decode(file_get_contents($viewsFile), true) ?: [];
             $stmt = $this->db->prepare("
-                INSERT INTO views (id, name, filters, columns, widths, sorting, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO views (id, user_id, name, filters, columns, widths, sorting, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (id) DO NOTHING
             ");
             foreach ($views as $v) {
                 $stmt->execute([
                     $v['id'],
+                    $v['user_id'] ?? 1,
                     $v['name'],
                     json_encode($v['filters'] ?? []),
                     json_encode($v['columns'] ?? []),

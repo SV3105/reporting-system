@@ -36,6 +36,10 @@ class ReportController
     public function index(): void
     {
         try {
+            if (!isset($_SESSION['user_id'])) {
+                Response::json(['success' => false, 'error' => 'Not authenticated'], 401);
+                return;
+            }
             $page  = max(1, (int) Request::query('page', 1));
             $limit = (int) Request::query('limit', 20);
             $limit = $limit === 0 ? 0 : min(500, max(1, $limit));

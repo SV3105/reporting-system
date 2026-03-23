@@ -25,6 +25,7 @@ class Database
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES => false,
                 ]);
+                self::$instance->exec("SET timezone = 'Asia/Kolkata'");
             } catch (\PDOException $e) {
                 // In a real app, use a logger. Here we throw for visibility.
                 throw new \RuntimeException("Database connection failed: " . $e->getMessage());

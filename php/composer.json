@@ -4,7 +4,8 @@
     "type": "project",
     "require": {
         "php": ">=8.1",
-        "nmred/kafka-php": "^0.2.0"
+        "nmred/kafka-php": "^0.2.0",
+        "phpmailer/phpmailer": "^6.9"
     },
     "autoload": {
         "psr-4": {

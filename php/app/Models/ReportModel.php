@@ -91,8 +91,14 @@ class ReportModel
     // ── Build fq string from filters array ────────────────────────
     private function buildFilterQuery(array $filters): string
     {
-        if (isset($filters['_logic']) && is_array($filters['_logic'])) {
-            return $this->buildAdvancedFilterQuery($filters['_logic']);
+        // Handle Advanced Logic filters
+        $logic = $filters['_logic'] ?? null;
+        if (!$logic && isset($filters['filter_logic']) && is_string($filters['filter_logic'])) {
+            $logic = json_decode($filters['filter_logic'], true);
+        }
+
+        if (is_array($logic)) {
+            return $this->buildAdvancedFilterQuery($logic);
         }
 
         $parts = [];

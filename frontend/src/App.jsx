@@ -4,6 +4,9 @@ import ReportTable, { HorizontalFilters } from './components/ReportTable';
 import ChartRenderer  from './components/ChartRenderer';
 import DateComparison from './components/DateComparison';
 import Login          from './components/Login';
+import UserManagement     from './components/UserManagement';
+import AdminReportsPanel  from './components/AdminReportsPanel';
+import AdminScheduler     from './components/AdminScheduler';
 import { api }        from './services/api';
 import './App.css';
 
@@ -21,7 +24,7 @@ const NAV_ITEMS = [
   },
   { 
     id: 'charts',  
-    label: 'Charts',  
+    label: 'Charts',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <line x1="18" y1="20" x2="18" y2="10"/>
@@ -32,6 +35,36 @@ const NAV_ITEMS = [
       </svg>
     ) 
   },
+  {
+    id: 'all-reports',
+    label: 'All Reports',
+    adminOnly: true,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+      </svg>
+    )
+  },
+  {
+    id: 'users',
+    label: 'Users',
+    adminOnly: true,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    )
+  },
+  {
+    id: 'schedules',
+    label: 'Schedules',
+    adminOnly: true,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
+    )
+  }
 ];
 
 export default function App() {
@@ -114,9 +147,16 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await api.logout();
+      // Clear ALL filter/UI state so the next user starts fresh
+      setDateFilters(null);
+      setGlobalExternalFilters({});
+      setReportFilters({});
+      setResetKey(k => k + 1);
+      setActiveTab('reports');
       setUser(null);
     } catch (e) {
       console.error('Logout failed', e);
+      setUser(null); // force logout even if API call fails
     }
   };
 
@@ -144,7 +184,7 @@ export default function App() {
         </div>
 
         <div className="vnav-items">
-          {NAV_ITEMS.map(item => (
+          {NAV_ITEMS.filter(item => !item.adminOnly || user?.role === 'admin').map(item => (
             <button key={item.id}
               className={`vnav-item ${activeTab === item.id ? 'active' : ''}`}
               onClick={() => setActiveTab(item.id)}
@@ -390,6 +430,18 @@ export default function App() {
                 )}
               </div>
             </div>
+          )}
+
+          {activeTab === 'all-reports' && user?.role === 'admin' && (
+            <AdminReportsPanel />
+          )}
+
+          {activeTab === 'users' && user?.role === 'admin' && (
+            <UserManagement />
+          )}
+
+          {activeTab === 'schedules' && user?.role === 'admin' && (
+            <AdminScheduler />
           )}
         </main>
 

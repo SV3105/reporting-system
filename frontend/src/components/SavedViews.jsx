@@ -10,31 +10,20 @@ import { useState, useEffect, useRef } from 'react';
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // ── API helpers ───────────────────────────────────────────────
+import { api } from '../services/api';
+
 async function fetchViews() {
-  const res  = await fetch(`${BASE_URL}/api/views`, { headers: { Accept: 'application/json' } });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error || 'Failed to load views');
-  return json.views ?? [];
+  const res = await api.apiFetch('/api/views');
+  return res.views ?? [];
 }
 
 async function saveView(payload) {
-  const res  = await fetch(`${BASE_URL}/api/views`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body:    JSON.stringify(payload),
-  });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.errors?.[0] || json.error || 'Failed to save view');
-  return json.view;
+  const res = await api.apiFetch('/api/views', payload, { method: 'POST' });
+  return res.view;
 }
 
 async function deleteView(id) {
-  const res  = await fetch(`${BASE_URL}/api/views/${id}`, {
-    method:  'DELETE',
-    headers: { Accept: 'application/json' },
-  });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error || 'Failed to delete view');
+  await api.apiFetch(`/api/views/${id}`, {}, { method: 'DELETE' });
 }
 
 // ── Relative time helper ──────────────────────────────────────
@@ -87,7 +76,8 @@ export default function SavedViews({
     setLoading(true);
     setError(null);
     try {
-      setViews(await fetchViews());
+      const fetchedViews = await fetchViews();
+      setViews(fetchedViews);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -275,7 +265,6 @@ export default function SavedViews({
                 )}
               </div>
 
-              <div className="sv-item-actions">
                 {loadedId === view.id && (
                   <span className="sv-active-dot" title="Currently loaded" />
                 )}
@@ -288,7 +277,6 @@ export default function SavedViews({
                   {deletingId === view.id ? '⟳' : '✕'}
                 </button>
               </div>
-            </div>
           ))}
         </div>
       )}

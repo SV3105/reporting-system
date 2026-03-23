@@ -23,8 +23,13 @@ class UserConfigController
     public function show(): void
     {
         try {
-            $userId   = (int) Request::query('user_id', '1');
+            $userId   = $_SESSION['user_id'] ?? 0;
             $reportId = Request::query('report_id', 'default');
+
+            if (!$userId) {
+                Response::json(['success' => false, 'error' => 'Not authenticated'], 401);
+                return;
+            }
 
             $config = $this->model->get($userId, $reportId);
 
@@ -41,22 +46,24 @@ class UserConfigController
     public function store(): void
     {
         try {
+            $userId = $_SESSION['user_id'] ?? 0;
+            if (!$userId) {
+                Response::json(['success' => false, 'error' => 'Not authenticated'], 401);
+                return;
+            }
+
             $raw  = file_get_contents('php://input');
             $data = json_decode($raw, true) ?: [];
 
-            if (empty($data['report_id'])) {
-                $data['report_id'] = 'default';
-            }
-            if (empty($data['user_id'])) {
-                $data['user_id'] = 1;
-            }
+            $reportId = $data['report_id'] ?? 'default';
+            $config   = $data['column_config'] ?? [];
 
-            $config = $this->model->save($data);
+            $savedConfig = $this->model->save($userId, $reportId, $config);
 
             Response::json([
                 'success' => true,
                 'message' => 'Configuration saved.',
-                'config'  => $config,
+                'config'  => $savedConfig,
             ]);
         } catch (\Throwable $e) {
             Response::json(['success' => false, 'error' => $e->getMessage()], 500);

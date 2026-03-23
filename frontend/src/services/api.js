@@ -10,6 +10,7 @@ async function apiFetch(endpoint, data = {}, options = {}) {
 
   const fetchOptions = {
     headers: { 'Accept': 'application/json' },
+    credentials: 'include',
     ...options
   };
 
@@ -40,5 +41,16 @@ export const api = {
   healthCheck: ()       => apiFetch('/api/reports/health'),
 
   getUserConfig: (reportId) => apiFetch('/api/user-config', { report_id: reportId }),
-  saveUserConfig: (reportId, config) => apiFetch('/api/user-config', { report_id: reportId, column_config: config }, { method: 'POST' })
+  saveUserConfig: (reportId, config) => apiFetch('/api/user-config', { report_id: reportId, column_config: config }, { method: 'POST' }),
+
+  // User Management
+  getUsers: () => apiFetch('/api/users'),
+  createUser: (userData) => apiFetch('/api/users', userData, { method: 'POST' }),
+  deleteUser: (id) => apiFetch(`/api/users/${id}`, {}, { method: 'DELETE' }),
+
+  // Admin — all views with creator info
+  getAdminViews: () => apiFetch('/api/admin/views'),
+
+  // Expose apiFetch for custom calls
+  apiFetch: apiFetch
 };

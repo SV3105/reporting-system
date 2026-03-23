@@ -83,7 +83,7 @@
 
 /* ── Reset ────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 14px; }
+html { font-size: 15px; } /* Increased from 14px for better readability */
 body {
   background:             var(--bg-canvas);
   color:                  var(--text-primary);
@@ -321,8 +321,8 @@ body {
   padding:         0 14px;
   border-radius:   var(--radius);
   font-family:     var(--font-body);
-  font-size:       13px;
-  font-weight:     500;
+  font-size:       14px; /* Increased from 13px */
+  font-weight:     600;  /* Bolder buttons */
   cursor:          pointer;
   transition:      all .15s;
   border:          1px solid transparent;
@@ -463,7 +463,7 @@ body {
   border-radius: var(--radius);
   padding:       7px 10px;
   font-family:   var(--font-body);
-  font-size:     13px;
+  font-size:     14px; /* Increased from 13px */
   width:         100%;
   outline:       none;
   transition:    border-color .15s, box-shadow .15s;
