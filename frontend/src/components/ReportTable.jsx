@@ -3,6 +3,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useReports }  from '../hooks/useReports';
+import { useWebSockets } from '../hooks/useWebSockets';
 import ColumnSelector  from './ColumnSelector';
 import Pagination      from './Pagination';
 import SavedViews      from './SavedViews';
@@ -519,6 +520,13 @@ export default function ReportTable({ externalFilters, extraParams = {}, onFilte
   const [showSavedViews, setShowSavedViews] = useState(false);
   // showFilters lifted to App.jsx
 
+  const { connected: wsConnected } = useWebSockets((data) => {
+    if (data.type === 'solr_updated') {
+      console.log('🔄 Real-time update received, refetching...');
+      refetch();
+    }
+  });
+
   const setVisibleColumns = useCallback((cols) => {
     setVisibleColumnsState(cols);
     saveVisibleCols(cols);
@@ -652,13 +660,33 @@ export default function ReportTable({ externalFilters, extraParams = {}, onFilte
 
         {/* Toolbar */}
         <div className="toolbar">
-          <div className="toolbar-left">
+          <div className="toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {total > 0 && <span className="total-badge">{total.toLocaleString()} records</span>}
             {hasActive  && (
               <span className="filtered-badge">
                 ⊟ Filtered
               </span>
             )}
+            <div 
+              style={{ 
+                display: 'flex', alignItems: 'center', gap: '5px', 
+                fontSize: '11px', fontWeight: 700, 
+                color: wsConnected ? 'var(--success)' : 'var(--text-muted)',
+                marginLeft: '8px',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: wsConnected ? 'rgba(34, 197, 94, 0.1)' : 'rgba(0,0,0,0.05)',
+                border: `1px solid ${wsConnected ? 'rgba(34, 197, 94, 0.2)' : 'var(--border-light)'}`
+              }}
+              title={wsConnected ? "Connected to live updates" : "Reconnecting to live updates..."}
+            >
+              <span style={{ 
+                width: 6, height: 6, borderRadius: '50%', 
+                backgroundColor: wsConnected ? '#22c55e' : '#94a3b8',
+                boxShadow: wsConnected ? '0 0 8px #22c55e' : 'none'
+              }} />
+              {wsConnected ? 'LIVE' : 'OFFLINE'}
+            </div>
           </div>
 
           <div className="toolbar-right">

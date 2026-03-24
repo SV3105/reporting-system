@@ -30,7 +30,10 @@ class ReportController
 {
     private ReportModel $model;
 
-    public function __construct() { $this->model = new ReportModel(); }
+    public function __construct()
+    {
+        $this->model = new ReportModel();
+    }
 
     // ── GET /api/reports ──────────────────────────────────────────
     public function index(): void
@@ -40,35 +43,35 @@ class ReportController
                 Response::json(['success' => false, 'error' => 'Not authenticated'], 401);
                 return;
             }
-            $page  = max(1, (int) Request::query('page', 1));
-            $limit = (int) Request::query('limit', 20);
+            $page = max(1, (int)Request::query('page', 1));
+            $limit = (int)Request::query('limit', 20);
             $limit = $limit === 0 ? 0 : min(500, max(1, $limit));
-            $sort  = Request::query('sort', '');
+            $sort = Request::query('sort', '');
             $returnFields = array_filter(explode(',', Request::query('fields', '')));
 
             $column = trim(Request::query('column', ''));
-            $min    = Request::query('min',    null);
-            $max    = Request::query('max',    null);
+            $min = Request::query('min', null);
+            $max = Request::query('max', null);
             $search = trim(Request::query('search', ''));
 
             // Date range params (for filtering the main table)
             $dateField = trim(Request::query('date_field', ''));
             $startDate = trim(Request::query('start_date', ''));
-            $endDate   = trim(Request::query('end_date',   ''));
+            $endDate = trim(Request::query('end_date', ''));
 
             // Facet params
             $facetFields = [];
-            $rawFacet    = $_GET['facet_field'] ?? null;
+            $rawFacet = $_GET['facet_field'] ?? null;
             if ($rawFacet !== null) {
                 $facetFields = is_array($rawFacet) ? $rawFacet : [$rawFacet];
                 $facetFields = array_values(array_filter(array_map('trim', $facetFields)));
             }
-            $facetLimit = max(1, (int) Request::query('facet_limit', 50));
+            $facetLimit = max(1, (int)Request::query('facet_limit', 50));
 
             // Build filters
-            $filters     = [];
+            $filters = [];
             $searchField = '';
-            $searchTerm  = '';
+            $searchTerm = '';
 
             if ($column !== '') {
                 if ($min !== null || $max !== null) {
@@ -79,13 +82,14 @@ class ReportController
                 }
                 if ($search !== '') {
                     $searchField = $column;
-                    $searchTerm  = $search;
+                    $searchTerm = $search;
                 }
             }
 
             foreach (Request::all() as $key => $value) {
-                if (!str_starts_with($key, 'filter_')) continue;
-                
+                if (!str_starts_with($key, 'filter_'))
+                    continue;
+
                 if ($key === 'filter_logic') {
                     $filters['_logic'] = json_decode($value, true);
                     continue;
@@ -95,9 +99,11 @@ class ReportController
                 if (str_contains($value, ',') && !str_ends_with($field, '_s')) {
                     [$fMin, $fMax] = explode(',', $value, 2);
                     $filters[$field] = ['min' => trim($fMin), 'max' => trim($fMax)];
-                } elseif (str_contains($value, '|')) {
+                }
+                elseif (str_contains($value, '|')) {
                     $filters[$field] = explode('|', $value);
-                } else {
+                }
+                else {
                     $filters[$field] = $value;
                 }
             }
@@ -112,30 +118,31 @@ class ReportController
             );
 
             $totalPages = ($limit > 0 && $data['limit'] > 0)
-                ? (int) ceil($data['total'] / $data['limit'])
+                ? (int)ceil($data['total'] / $data['limit'])
                 : 0;
 
             Response::json([
-                'success'         => true,
-                'total'           => $data['total'],
-                'page'            => $data['page'],
-                'limit'           => $data['limit'],
-                'total_pages'     => $totalPages,
+                'success' => true,
+                'total' => $data['total'],
+                'page' => $data['page'],
+                'limit' => $data['limit'],
+                'total_pages' => $totalPages,
                 'filters_applied' => [
-                    'column'     => $column     ?: null,
-                    'min'        => $min,
-                    'max'        => $max,
-                    'search'     => $search     ?: null,
-                    'date_field' => $dateField  ?: null,
-                    'start_date' => $startDate  ?: null,
-                    'end_date'   => $endDate    ?: null,
+                    'column' => $column ?: null,
+                    'min' => $min,
+                    'max' => $max,
+                    'search' => $search ?: null,
+                    'date_field' => $dateField ?: null,
+                    'start_date' => $startDate ?: null,
+                    'end_date' => $endDate ?: null,
                 ],
-                'data'    => $data['records'],
+                'data' => $data['records'],
                 'records' => $data['records'],
-                'facets'  => empty($data['facets']) ? new \stdClass() : $data['facets'],
+                'facets' => empty($data['facets']) ? new \stdClass() : $data['facets'],
             ]);
 
-        } catch (\Throwable $e) {
+        }
+        catch (\Throwable $e) {
             Response::json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
@@ -157,25 +164,28 @@ class ReportController
     public function daterange(): void
     {
         try {
-            $dateField   = trim(Request::query('date_field', ''));
-            $startDate   = trim(Request::query('start_date', ''));
-            $endDate     = trim(Request::query('end_date',   ''));
-            $compare     = filter_var(Request::query('compare', 'false'), FILTER_VALIDATE_BOOLEAN);
+            $dateField = trim(Request::query('date_field', ''));
+            $startDate = trim(Request::query('start_date', ''));
+            $endDate = trim(Request::query('end_date', ''));
+            $compare = filter_var(Request::query('compare', 'false'), FILTER_VALIDATE_BOOLEAN);
             $compareType = trim(Request::query('compare_type', 'previous')); // 'previous' or 'year'
             $relativeRange = trim(Request::query('relative_range', ''));
 
             // Validate required params
             $missing = [];
-            if (!$dateField) $missing[] = 'date_field';
+            if (!$dateField)
+                $missing[] = 'date_field';
             if (!$relativeRange && (!$startDate || !$endDate)) {
-                if (!$startDate) $missing[] = 'start_date';
-                if (!$endDate)   $missing[] = 'end_date';
+                if (!$startDate)
+                    $missing[] = 'start_date';
+                if (!$endDate)
+                    $missing[] = 'end_date';
             }
 
             if (!empty($missing)) {
                 Response::json([
                     'success' => false,
-                    'error'   => 'Missing required params: ' . implode(', ', $missing),
+                    'error' => 'Missing required params: ' . implode(', ', $missing),
                     'example' => '/api/reports/daterange?date_field=Date_s&start_date=2026-01-01&end_date=2026-03-31&compare=true',
                 ], 400);
                 return;
@@ -183,17 +193,20 @@ class ReportController
 
             // Validate date format if provided
             if ($startDate && !\DateTime::createFromFormat('Y-m-d', $startDate)) {
-                 Response::json(['success' => false, 'error' => "Invalid format for start_date"], 400); return;
+                Response::json(['success' => false, 'error' => "Invalid format for start_date"], 400);
+                return;
             }
             if ($endDate && !\DateTime::createFromFormat('Y-m-d', $endDate)) {
-                 Response::json(['success' => false, 'error' => "Invalid format for end_date"], 400); return;
+                Response::json(['success' => false, 'error' => "Invalid format for end_date"], 400);
+                return;
             }
 
             // Extra fq filters (filter_* params)
             $extraFq = [];
             foreach (Request::all() as $key => $value) {
-                if (!str_starts_with($key, 'filter_')) continue;
-                $field    = substr($key, 7);
+                if (!str_starts_with($key, 'filter_'))
+                    continue;
+                $field = substr($key, 7);
                 $extraFq[] = "{$field}:\"" . addslashes($value) . "\"";
             }
 
@@ -204,7 +217,8 @@ class ReportController
 
             Response::json(['success' => true, ...$result]);
 
-        } catch (\Throwable $e) {
+        }
+        catch (\Throwable $e) {
             Response::json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
@@ -214,18 +228,18 @@ class ReportController
     {
         try {
             // Apply all the exact same filters as index()
-            $sort  = Request::query('sort', '');
+            $sort = Request::query('sort', '');
             $column = trim(Request::query('column', ''));
-            $min    = Request::query('min',    null);
-            $max    = Request::query('max',    null);
+            $min = Request::query('min', null);
+            $max = Request::query('max', null);
             $search = trim(Request::query('search', ''));
             $dateField = trim(Request::query('date_field', ''));
             $startDate = trim(Request::query('start_date', ''));
-            $endDate   = trim(Request::query('end_date',   ''));
+            $endDate = trim(Request::query('end_date', ''));
 
             $filters = [];
             $searchField = '';
-            $searchTerm  = '';
+            $searchTerm = '';
 
             if ($column !== '') {
                 if ($min !== null || $max !== null) {
@@ -233,19 +247,22 @@ class ReportController
                 }
                 if ($search !== '') {
                     $searchField = $column;
-                    $searchTerm  = $search;
+                    $searchTerm = $search;
                 }
             }
 
             foreach (Request::all() as $key => $value) {
-                if (!str_starts_with($key, 'filter_')) continue;
+                if (!str_starts_with($key, 'filter_'))
+                    continue;
                 $field = substr($key, 7);
                 if (str_contains((string)$value, ',') && !str_ends_with($field, '_s')) {
                     [$fMin, $fMax] = explode(',', $value, 2);
                     $filters[$field] = ['min' => trim($fMin), 'max' => trim($fMax)];
-                } elseif (str_contains((string)$value, '|')) {
+                }
+                elseif (str_contains((string)$value, '|')) {
                     $filters[$field] = explode('|', $value);
-                } else {
+                }
+                else {
                     $filters[$field] = $value;
                 }
             }
@@ -256,7 +273,7 @@ class ReportController
             $data = $this->model->search(
                 $filters, 1, 10000, $sort, [],
                 $searchField, $searchTerm,
-                [], 50,
+            [], 50,
                 $dateField, $startDate, $endDate, $relativeRange
             );
 
@@ -265,12 +282,13 @@ class ReportController
             // Stream CSV
             header('Content-Type: text/csv; charset=utf-8');
             header('Content-Disposition: attachment; filename="report_export_' . date('Y-m-d') . '.csv"');
-            
+
             $out = fopen('php://output', 'w');
 
             if (empty($records)) {
                 fputcsv($out, ['No records found matching filters.']);
-            } else {
+            }
+            else {
                 $headers = array_keys((array)$records[0]);
                 // Exclude internal solr fields
                 $headers = array_filter($headers, fn($h) => !in_array($h, ['_version_', '_root_', '_nest_path_']));
@@ -280,7 +298,8 @@ class ReportController
                     $csvRow = [];
                     foreach ($headers as $h) {
                         $val = $row[$h] ?? '';
-                        if (is_array($val)) $val = implode(', ', $val);
+                        if (is_array($val))
+                            $val = implode(', ', $val);
                         $csvRow[] = $val;
                     }
                     fputcsv($out, $csvRow);
@@ -290,7 +309,8 @@ class ReportController
             fclose($out);
             exit;
 
-        } catch (\Throwable $e) {
+        }
+        catch (\Throwable $e) {
             Response::json(['success' => false, 'error' => 'Export failed: ' . $e->getMessage()], 500);
         }
     }
@@ -306,7 +326,8 @@ class ReportController
             }
             $facets = $this->model->getFacets(array_filter(explode(',', $fieldsParam)));
             Response::json(['success' => true, 'facets' => empty($facets) ? new \stdClass() : $facets]);
-        } catch (\Throwable $e) {
+        }
+        catch (\Throwable $e) {
             Response::json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
@@ -316,16 +337,26 @@ class ReportController
     {
         try {
             $field = Request::query('field', '');
-            if (!$field) { Response::json(['success' => false, 'error' => '"field" param required'], 400); return; }
+            if (!$field) {
+                Response::json(['success' => false, 'error' => '"field" param required'], 400);
+                return;
+            }
             Response::json(['success' => true, 'field' => $field, 'stats' => $this->model->getStats($field)]);
-        } catch (\Throwable $e) { Response::json(['success' => false, 'error' => $e->getMessage()], 500); }
+        }
+        catch (\Throwable $e) {
+            Response::json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
     }
 
     // ── GET /api/reports/fields ───────────────────────────────────
     public function fields(): void
     {
-        try { Response::json(['success' => true, 'fields' => $this->model->getFields()]); }
-        catch (\Throwable $e) { Response::json(['success' => false, 'error' => $e->getMessage()], 500); }
+        try {
+            Response::json(['success' => true, 'fields' => $this->model->getFields()]);
+        }
+        catch (\Throwable $e) {
+            Response::json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
     }
 
     // ── GET /api/reports/health ───────────────────────────────────
@@ -334,6 +365,9 @@ class ReportController
         try {
             $ok = $this->model->ping();
             Response::json(['success' => $ok, 'solr' => $ok ? 'connected' : 'unreachable', 'solr_url' => getenv('SOLR_URL') ?: 'not set'], $ok ? 200 : 503);
-        } catch (\Throwable $e) { Response::json(['success' => false, 'error' => $e->getMessage()], 503); }
+        }
+        catch (\Throwable $e) {
+            Response::json(['success' => false, 'error' => $e->getMessage()], 503);
+        }
     }
 }

@@ -1,4 +1,5 @@
 <?php
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 date_default_timezone_set('Asia/Kolkata');
 
 require 'vendor/autoload.php';
@@ -17,9 +18,12 @@ define('BATCH_SIZE', 1000);
 // ── Solr type suffix from PHP value ──────────────────────────
 function getSolrSuffix($value): string
 {
-    if (is_int($value))   return '_i';
-    if (is_float($value)) return '_f';
-    if (is_bool($value))  return '_b';
+    if (is_int($value))
+        return '_i';
+    if (is_float($value))
+        return '_f';
+    if (is_bool($value))
+        return '_b';
     return '_s';
 }
 
@@ -30,42 +34,69 @@ function hasTypeSuffix(string $key): bool
     return preg_match('/_(dt|i|f|b|s)$/', $key) === 1;
 }
 
+// ── Notify WebSocket Server ───────────────────────────────────
+function notifyWebSocket(string $event, $payload = null): void
+{
+    try {
+        // Connect to the internal TCP port of our websocket server
+        $fp = @fsockopen('127.0.0.1', 8081, $errno, $errstr, 1);
+        if (!$fp)
+            return;
+
+        $data = json_encode([
+            'type' => 'broadcast',
+            'event' => $event,
+            'payload' => $payload
+        ]);
+
+        fwrite($fp, $data);
+        fclose($fp);
+    }
+    catch (\Exception $e) {
+    // Ignore errors
+    }
+}
+
 // ── Send batch to Solr ────────────────────────────────────────
 function sendBatchToSolr(array $batch): void
 {
-    if (empty($batch)) return;
+    if (empty($batch))
+        return;
 
     $solrUrl = "http://solr:8983/solr/csvcore/update/json/docs?commitWithin=5000";
 
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL,           $solrUrl);
-    curl_setopt($ch, CURLOPT_POST,          true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS,    json_encode($batch));
-    curl_setopt($ch, CURLOPT_HTTPHEADER,    ['Content-Type: application/json']);
+    curl_setopt($ch, CURLOPT_URL, $solrUrl);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($batch));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
     $response = curl_exec($ch);
-    $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
     if ($httpCode === 200) {
         echo "✅ Batch indexed: " . count($batch) . " docs\n";
-    } else {
+        notifyWebSocket('solr_updated', ['count' => count($batch)]);
+    }
+    else {
         echo "❌ Solr error ($httpCode): $response\n";
     }
 }
 
 // ── Main ──────────────────────────────────────────────────────
-$batch        = [];
+$batch = [];
 $totalIndexed = 0;
-$consumer     = new Consumer();
+$consumer = new Consumer();
 
 $consumer->start(function ($topic, $part, $message) use (&$batch, &$totalIndexed) {
 
     $jsonData = $message['message']['value'];
-    $data     = json_decode($jsonData, true);
+    $data = json_decode($jsonData, true);
 
-    if (!$data) return;
+    if (!$data)
+        return;
 
     $doc = [];
 
@@ -97,7 +128,7 @@ $consumer->start(function ($topic, $part, $message) use (&$batch, &$totalIndexed
         }
 
         // ── Auto-assign suffix based on PHP type ──────────────
-        $suffix        = getSolrSuffix($value);
+        $suffix = getSolrSuffix($value);
         $doc[$cleanKey . $suffix] = $cleanValue;
     }
 

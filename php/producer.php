@@ -1,4 +1,5 @@
 <?php
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 date_default_timezone_set('Asia/Kolkata');
 
 require 'vendor/autoload.php';
@@ -118,6 +119,7 @@ foreach ($csvFiles as $csvFile) {
     fgetcsv($handle); // skip header
 
     $count = 0;
+    $kafkaBatch = [];
 
     while (($row = fgetcsv($handle)) !== false) {
 
@@ -162,18 +164,49 @@ foreach ($csvFiles as $csvFile) {
 
         $data['source_file_s'] = $fileName;
 
-        $producer->send([[
+        $kafkaBatch[] = [
             'topic' => 'kafka-solr-csvdata',
             'value' => json_encode($data, JSON_UNESCAPED_UNICODE),
             'key'   => md5($fileName . ':' . $count . ':' . uniqid('', true)),
-        ]]);
+        ];
 
         $count++;
         $totalCount++;
 
+        if (count($kafkaBatch) >= 50) {
+            $attempts = 0;
+            while ($attempts < 3) {
+                try {
+                    $producer->send($kafkaBatch);
+                    break;
+                } catch (\Exception $e) {
+                    $attempts++;
+                    echo "  ⚠️ Kafka send error: " . $e->getMessage() . " (Retry $attempts/3)\n";
+                    sleep(2);
+                    $producer = new Producer(); // Reconnect
+                }
+            }
+            $kafkaBatch = [];
+        }
+
         if ($count % 1000 === 0) {
             echo "  ⏳ Sent $count records from $fileName\n";
         }
+    }
+
+    if (!empty($kafkaBatch)) {
+        $attempts = 0;
+        while ($attempts < 3) {
+            try {
+                $producer->send($kafkaBatch);
+                break;
+            } catch (\Exception $e) {
+                $attempts++;
+                sleep(2);
+                $producer = new Producer();
+            }
+        }
+        $kafkaBatch = [];
     }
 
     fclose($handle);

@@ -7,8 +7,9 @@ chmod 0644 /etc/cron.d/report-cron
 crontab /etc/cron.d/report-cron
 touch /var/log/cron.log
 
-# Start cron in background
+# Start cron and WebSocket server in background
 cron
+php /var/www/html/websocket.php >> /var/log/websocket.log 2>&1 &
 
 # Start Apache in foreground
 apache2-foreground
