@@ -71,6 +71,8 @@ export default function App() {
   const [solrStatus,   setSolrStatus]   = useState('checking');
   const [activeTab,    setActiveTab]    = useState('reports');
   const [allFields,    setAllFields]    = useState([]);
+  const [sourceFiles,  setSourceFiles]  = useState([]);
+  const [selectedSourceFile, setSelectedSourceFile] = useState('');
   const [facetField1,  setFacetField1]  = useState('');
   const [yAxisFunc1,   setYAxisFunc1]   = useState('count');
   const [yAxisField1,  setYAxisField1]  = useState('');
@@ -98,20 +100,46 @@ export default function App() {
       .finally(() => setAuthChecking(false));
 
     api.healthCheck().then(() => setSolrStatus('ok')).catch(() => setSolrStatus('error'));
-    api.getFields().then(d => {
-      const fields = d.fields ?? [];
-      setAllFields(fields);
-      const str = fields.filter(f => f.endsWith('_s'));
-      if (str[0]) setFacetField1(str[0]);
-      if (str[1]) setFacetField2(str[1]);
+    
+    api.getFacets(['source_file_s']).then(d => {
+      if (d.facets && d.facets.source_file_s) {
+        setSourceFiles(Object.keys(d.facets.source_file_s));
+      }
     }).catch(() => {});
   }, []);
+
+  // Fetch fields dynamically based on selected source file
+  useEffect(() => {
+    const updateFields = (fields) => {
+      const filteredFields = fields.filter(f => f !== 'source_file_s' && f !== 'id' && !f.startsWith('_'));
+      setAllFields(filteredFields);
+      
+      setFacetField1(prev => filteredFields.includes(prev) ? prev : (filteredFields.filter(f => f.endsWith('_s'))[0] || ''));
+      setFacetField2(prev => filteredFields.includes(prev) ? prev : (filteredFields.filter(f => f.endsWith('_s'))[1] || ''));
+      
+      setYAxisField1(prev => filteredFields.includes(prev) ? prev : '');
+      setYAxisField2(prev => filteredFields.includes(prev) ? prev : '');
+    };
+
+    if (selectedSourceFile) {
+      api.getReports({ limit: 1, filter_source_file_s: selectedSourceFile }).then(res => {
+        if (res.records && res.records[0]) {
+          updateFields(Object.keys(res.records[0]));
+        } else {
+          updateFields([]);
+        }
+      }).catch(() => {});
+    } else {
+      api.getFields().then(d => updateFields(d.fields ?? [])).catch(() => {});
+    }
+  }, [selectedSourceFile]);
 
   // ── Global Reset ──────────────────────────────────────────
   const handleResetAll = useCallback(() => {
     setDateFilters(null);          // clear date filter
     setGlobalExternalFilters({});  // clear external drill-down filters
     setReportFilters({});          // clear report-specific filters
+    setSelectedSourceFile('');     // clear source file filter
     setResetKey(k => k + 1);       // remount ReportTable
   }, []);
 
@@ -130,7 +158,7 @@ export default function App() {
     f.match(/_[ifdp]$/i) || f.match(/price|cost|qty|amount|count/i)
   ), [allFields]);
 
-  const hasAnyFilter = !!dateFilters || Object.keys(globalExternalFilters).length > 0;
+  const hasAnyFilter = !!dateFilters || Object.keys(globalExternalFilters).length > 0 || !!selectedSourceFile;
 
   const activeDateParams = dateFilters
     ? { 
@@ -141,8 +169,13 @@ export default function App() {
       }
     : {};
 
+  const activeChartParams = {
+    ...activeDateParams,
+    ...(selectedSourceFile ? { filter_source_file_s: selectedSourceFile } : {})
+  };
+
   const fieldFilterCount = Object.keys(reportFilters).filter(k => k !== 'sort' && k !== 'page' && k !== 'limit').length;
-  const activeFilterCount = fieldFilterCount + (dateFilters ? 1 : 0);
+  const activeFilterCount = fieldFilterCount + (dateFilters ? 1 : 0) + (selectedSourceFile ? 1 : 0);
 
   const handleLogout = async () => {
     try {
@@ -151,6 +184,7 @@ export default function App() {
       setDateFilters(null);
       setGlobalExternalFilters({});
       setReportFilters({});
+      setSelectedSourceFile('');
       setResetKey(k => k + 1);
       setActiveTab('reports');
       setUser(null);
@@ -171,6 +205,18 @@ export default function App() {
   if (!user) {
     return <Login onLoginSuccess={setUser} />;
   }
+
+  const sourceFileControl = sourceFiles.length > 0 && (
+    <select 
+      className="fp-select" 
+      style={{ width: 'auto', minWidth: 150, background: 'var(--bg-surface)' }}
+      value={selectedSourceFile}
+      onChange={(e) => setSelectedSourceFile(e.target.value)}
+    >
+      <option value="">All Source Files</option>
+      {sourceFiles.map(sf => <option key={sf} value={sf}>{sf}</option>)}
+    </select>
+  );
 
   return (
     <div className="app-shell">
@@ -252,12 +298,18 @@ export default function App() {
           {activeTab === 'reports' && (
             <ReportTable 
               key={resetKey} 
-              externalFilters={{...globalExternalFilters, ...reportFilters}} 
+              allFields={allFields}
+              externalFilters={{
+                ...globalExternalFilters, 
+                ...reportFilters,
+                ...(selectedSourceFile ? { filter_source_file_s: selectedSourceFile } : {})
+              }} 
               extraParams={activeDateParams}
               onFiltersChange={setReportFilters}
               onDateChange={setDateFilters}
               showFilterDropdown={showFilters}
               onCloseFilters={() => setShowFilters(false)}
+              sourceFileControl={sourceFileControl}
               filterControl={
                 <div className="filter-center-wrapper">
                   <button
@@ -329,12 +381,15 @@ export default function App() {
           {activeTab === 'charts' && (
             <div className="charts-page">
               <div className="charts-controls">
-                <h2 className="charts-heading">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 10, verticalAlign: 'middle', color: 'var(--accent)' }}>
-                    <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>
-                  </svg>
-                  Chart Explorer
-                </h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 className="charts-heading">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 10, verticalAlign: 'middle', color: 'var(--accent)' }}>
+                      <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>
+                    </svg>
+                    Chart Explorer
+                  </h2>
+                  {sourceFileControl}
+                </div>
                 <div className="charts-field-pickers">
                   <div className="fp-group">
                     <label className="fp-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -409,7 +464,7 @@ export default function App() {
                     facetField={facetField1} 
                     yAxisFunc={yAxisFunc1}
                     yAxisField={yAxisField1}
-                    filters={activeDateParams} 
+                    filters={activeChartParams} 
                     onDrilldown={handleDrilldown} 
                   />
                 )}
@@ -418,7 +473,7 @@ export default function App() {
                     facetField={facetField2} 
                     yAxisFunc={yAxisFunc2}
                     yAxisField={yAxisField2}
-                    filters={activeDateParams} 
+                    filters={activeChartParams} 
                     onDrilldown={handleDrilldown} 
                   />
                 )}

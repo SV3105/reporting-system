@@ -461,6 +461,20 @@ class ReportModel
         return $result['stats']['stats_fields'][$field] ?? [];
     }
 
+    // ── Get Fields ────────────────────────────────────────────────
+    public function getFields(): array
+    {
+        $result = $this->solrGet('/admin/luke', ['numTerms' => 0]);
+        $fields = array_keys($result['fields'] ?? []);
+        
+        $hidden = ['_version_', '_root_', '_nest_path_', '_text_', 'id'];
+        $filtered = array_filter($fields, function ($f) use ($hidden) {
+            return !in_array($f, $hidden) && !str_starts_with($f, '_');
+        });
+        
+        return array_values($filtered);
+    }
+
     // ── Ping ──────────────────────────────────────────────────────
     public function ping(): bool
     {

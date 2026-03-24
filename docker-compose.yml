@@ -124,6 +124,12 @@ services:
     command:
       - solr-precreate
       - csvcore
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8983/solr/admin/info/system || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   # ----------------------------------------------------------
   # 5. KAFKA UI  (http://localhost:8080)
@@ -160,7 +166,7 @@ services:
       kafka:
         condition: service_healthy
       solr:
-        condition: service_started
+        condition: service_healthy
       db:
         condition: service_healthy
     environment:

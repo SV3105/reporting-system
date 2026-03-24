@@ -160,35 +160,36 @@ function DatePanel({ allFields, onDateChange, onClose }) {
         </div>
       </div>
 
-      {/* Compare toggle */}
-      <div className="dc-compare-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <label className="dc-compare-toggle" style={{ margin: 0 }}>
-          <div className={`dc-toggle ${compare ? 'dc-toggle--on' : ''}`} onClick={() => setCompare(c => !c)}>
-            <div className="dc-toggle-thumb" />
-          </div>
-          <span className="dc-compare-label">Compare to</span>
-        </label>
-        {compare && (
-          <select 
-            className="fp-select fp-select--sm" 
-            style={{ width: 'auto', padding: '2px 8px', fontSize: 12 }} 
-            value={compareType} 
-            onChange={e => setCompareType(e.target.value)}
-          >
-            <option value="previous">Previous period</option>
-            <option value="year">Same period last year</option>
-          </select>
-        )}
-      </div>
+      {/* Compare toggle and Actions */}
+      <div className="dc-compare-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <label className="dc-compare-toggle" style={{ margin: 0 }}>
+            <div className={`dc-toggle ${compare ? 'dc-toggle--on' : ''}`} onClick={() => setCompare(c => !c)}>
+              <div className="dc-toggle-thumb" />
+            </div>
+            <span className="dc-compare-label">Compare to</span>
+          </label>
+          {compare && (
+            <select 
+              className="fp-select fp-select--sm" 
+              style={{ width: 'auto', padding: '2px 8px', fontSize: 12 }} 
+              value={compareType} 
+              onChange={e => setCompareType(e.target.value)}
+            >
+              <option value="previous">Previous period</option>
+              <option value="year">Same period last year</option>
+            </select>
+          )}
+        </div>
 
-      {/* Actions */}
-      <div className="dc-actions">
-        <button className="btn btn-primary btn-sm" onClick={handleApply} disabled={loading || !dateField} style={{ flex: 1, justifyContent: 'center' }}>
-          {loading ? '⟳ Loading…' : '⊡ Apply'}
-        </button>
-        {applied && (
-          <button className="btn btn-ghost btn-sm" onClick={handleReset}>✕ Reset</button>
-        )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {applied && (
+            <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={handleReset}>✕ Reset</button>
+          )}
+          <button className="btn btn-primary btn-sm" onClick={handleApply} disabled={loading || !dateField}>
+            {loading ? '⟳ Loading…' : '⊡ Apply'}
+          </button>
+        </div>
       </div>
 
       {error && <div className="dc-error">⚠ {error}</div>}
@@ -232,6 +233,9 @@ function DatePanel({ allFields, onDateChange, onClose }) {
           </button>
         </div>
       )}
+      
+      {/* Spacer to guarantee un-clipped bounds for the floating panel */}
+      <div style={{ height: 200, width: '100%', flexShrink: 0 }} />
     </div>
   );
 }

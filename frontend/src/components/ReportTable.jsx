@@ -512,7 +512,7 @@ function VirtualTable({
 }
 
 // ── Main ReportTable ──────────────────────────────────────────
-export default function ReportTable({ externalFilters, extraParams = {}, onFiltersChange, onDateChange, filterControl, resetControl } = {}) {
+export default function ReportTable({ allFields, externalFilters, extraParams = {}, onFiltersChange, onDateChange, filterControl, resetControl, sourceFileControl } = {}) {
   const [filters,        setFilters]        = useState(externalFilters ?? {});
   const [sort,           setSort]           = useState({ field: '', dir: 'asc' });
   const [visibleColumns, setVisibleColumnsState] = useState(loadVisibleCols);
@@ -539,7 +539,7 @@ export default function ReportTable({ externalFilters, extraParams = {}, onFilte
   const { records, total, totalPages, page, setPage, limit, setLimit, loading, error, refetch } =
     useReports({ ...activeFilters, sort: sort.field ? `${sort.field} ${sort.dir}` : '' });
 
-  const allColumns = useMemo(() => records.length ? Object.keys(records[0]) : [], [records]);
+  const allColumns = useMemo(() => allFields || [], [allFields]);
 
   const columns = useMemo(() => {
     if (!allColumns.length) return [];
@@ -694,6 +694,9 @@ export default function ReportTable({ externalFilters, extraParams = {}, onFilte
             <button className="btn btn-outline" onClick={refetch} disabled={loading}>
               {loading ? '⟳' : '↻'} Refresh
             </button>
+
+            {/* Source File selector immediately follows Refresh */}
+            {sourceFileControl}
 
             {/* Filter Dropdown */}
             {filterControl}
